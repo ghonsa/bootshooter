@@ -1,0 +1,1910 @@
+Microsoft (R) Macro Assembler Version 6.11		    06/17/05 15:51:28
+vcontex.asm						     Page 1 - 1
+
+
+				;*****************************************************************************
+				;  vcontex - video context object
+				;       Copyright 2005 Greg Honsa
+				;
+				;*****************************************************************************
+				 include vgutl.inc
+			      C ;*****************************************************************************
+			      C ;  vgutl - video utility routines
+			      C ;       Copyright 2005 Greg Honsa
+			      C ;
+			      C ;*****************************************************************************
+			      C 						    
+			      C extrn vgaSetPalette:near
+			      C extrn vbeGetMode:near							 
+			      C extrn vbeSetMode:near
+			      C extrn vbeGetInfo:near
+			      C extrn vbeGetModeInfo:near
+			      C extrn vbeSetBankAddr:near
+			      C extrn vbeSetDisplayStart:near	 
+			      C extrn waitBlankEnd:near
+			      C extrn waitRetrace:near
+			      C extrn memset:near
+			      C 
+			      C 
+			      C 
+			      C 
+			      C 
+			      C 
+			      C 						   
+			      C 					   
+			      C 
+				 include vcontex.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C  include video.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C 
+			      C 
+ 0200			      C VBEINFO struc
+ 0000  0001 [		      C    vbesignature 	db "VESA"		; // VBE Signature
+        56 45 53 41
+       ]
+ 0004  0000		      C    vbeversion		dw	?        	; // VBE Version
+ 0006  00000000		      C    oemstringptr 	dd	?			; // Pointer to OEM String
+ 000A  0004 [		      C    capabilities  	db 4 dup (?)   	; // Capabilities of graphics cont.
+        00
+       ]
+ 000E  00000000		      C    videomodeptr 	dd	? 			; // Pointer to Video Mode List
+ 0012  0000		      C    totalmemory		dw	?			; // number of 64Kb memory blocks
+ 0014  0000		      C    oemsoftwarerev	dw	?			; // VBE implementation Software revision
+ 0016  00000000		      C    oemvendornameptr	dd	?			; // Pointer to Vendor Name String
+ 001A  00000000		      C    oemproductnameptr dd	?			; // Pointer to Product Name String
+ 001E  00000000		      C    oemproductrevptr	dd	?			; // Pointer to Product Revision String
+ 0022  00DE [		      C    reserved 		db 222 dup (?)			; // Reserved for VBE implementation scratch area
+        00
+       ]
+ 0100  0100 [		      C    oemdata			db 256 dup (?)	; // Data Area for OEM Strings
+        00
+       ]
+			      C VBEINFO	ends
+			      C 
+ 0100			      C MODEINFO struc
+			      C 
+			      C    ;// Mandatory information for all VBE revision
+			      C 
+ 0000  0000		      C    modeattributes	dw	?			; // Mode attributes
+ 0002  00		      C    winaattributes	db	?			; // Window A attributes
+ 0003  00		      C    winbattributes	db	?			; // Window B attributes
+ 0004  0000		      C    wingranularity	dw	?			; // Window granularity
+ 0006  0000		      C    winsize			dw	?			; // Window size
+ 0008  0000		      C    winasegment		dw	?			; // Window A start segment
+ 000A  0000		      C    winbsegment		dw	?			; // Window B start segment
+ 000C  00000000		      C    winfuncptr		dd	?			; // pointer to window function
+ 0010  0000		      C    bytesperscanline	dw	?			; // Bytes per scan line
+			      C 
+			      C    ;// Mandatory information for VBE 1.2 and above
+			      C 
+ 0012  0000		      C    xresolution		dw	?			; // Horizontal resolution in pixel or chars
+ 0014  0000		      C    yresolution		dw	?			; // Vertical resolution in pixel or chars
+ 0016  00		      C    xcharsize		db	?			; // Character cell width in pixel
+ 0017  00		      C    ycharsize		db	?			; // Character cell height in pixel
+ 0018  00		      C    numberofplanes	db	?			; // Number of memory planes
+ 0019  00		      C    bitsperpixel		db	?			; // Bits per pixel
+ 001A  00		      C    numberofbanks	db	?			; // Number of banks
+ 001B  00		      C    memorymodel		db	?			; // Memory model type
+ 001C  00		      C    banksize			db	?			; // Bank size in KB
+ 001D  00		      C    numberofimagepages db ?			; // Number of images
+ 001E  00		      C    reserved1		db	?			; // Reserved for page function
+			      C 
+			      C    ;// Direct Color fields (required for direct/6 and YUV/7 memory models)
+			      C 
+ 001F  00		      C    redmasksize		db	?			; // Size of direct color red mask in bits
+ 0020  00		      C    redfieldposition	db	?			; // Bit position of lsb of red bask
+ 0021  00		      C    greenmasksize	db	?			; // Size of direct color green mask in bits
+ 0022  00		      C    greenfieldposition db	?		; // Bit position of lsb of green bask
+ 0023  00		      C    bluemasksize		db	?			; // Size of direct color blue mask in bits
+ 0024  00		      C    bluefieldposition db ?			; // Bit position of lsb of blue bask
+ 0025  00		      C   rsvdmasksize		db	?			; // Size of direct color reserved mask in bits
+ 0026  00		      C    rsvdfieldposition db	?			; // Bit position of lsb of reserved bask   
+ 0027  00		      C    directcolormodeinfo db ?			; // Direct color mode attributes
+			      C 
+			      C    ;// Mandatory information for VBE 2.0 and above
+			      C 
+ 0028  00000000		      C    physbaseptr		dd	?			; // Physical address for flat frame buffer
+ 002C  00000000		      C    offscreenmemoffset dd ?			; // Pointer to start of off screen memory
+ 0030  0000		      C    offscreenmemsize dw ?			; // Amount of off screen memory in 1Kb units
+ 0032  00CE [		      C    reserved2 db 206 dup (?)			; // Remainder of ModeInfoBlock
+        00
+       ]
+			      C 
+			      C MODEINFO ends
+			      C 
+ 0006			      C VGACOLOR struc
+ 0000  0000		      C     red		dw	?
+ 0002  0000		      C     green	dw	?
+ 0004  0000		      C     blue	dw	?
+			      C VGACOLOR ends
+			      C 
+			      C 
+			      C 
+			      C 
+ 0338			      C VDCONTX	struc
+			      C 	;
+			      C 	;	--- function pointers --- 
+			      C 	;
+ 0000  0000		      C 	Create			dw	?	; Create function pointer
+ 0002  0000		      C 	Destroy			dw	?	; Destroy function
+ 0004  0000		      C 	Clear			dw	?	;
+ 0006  0000		      C 	getNumPages		dw	?	;
+ 0008  0000		      C     setActivePage	dw	?	;  
+ 000A  0000		      C     setVisiblePage	dw	?	;
+ 000C  0000		      C     pixel			dw	?	;	(int16 x, int16 y, int16 color);
+ 000E  0000		      C     fillRect		dw	?	;  (int16 x, int16 y, int16 width, int16 height, int16 color);
+ 0010  0000		      C 	drawRect		dw	?
+ 0012  0000		      C 	drawChar		dw	?	;	
+ 0014  0000		      C 	drawLine		dw	?	;
+ 0016  0000		      C 	drawString		dw	?	;
+ 0018  0000		      C 	createWindow	dw	?	;
+ 001A  0000		      C 	createbutton	dw	?	;
+			      C 
+ 001C  0001 [		      C 	vbi			VBEINFO <>
+        56 45 53 41
+       ] 0000 00000000
+       0004 [
+        00
+       ] 00000000 0000
+       0000 00000000
+       00000000 00000000
+       00DE [
+        00
+       ]
+       0100 [
+        00
+       ]
+ 021C  0000 00 00 0000	      C 	vmi 		MODEINFO <>
+       0000 0000 0000
+       00000000 0000 0000
+       0000 00 00 00 00
+       00 00 00 00 00 00
+       00 00 00 00 00 00
+       00 00 00000000
+       00000000 0000
+       00CE [
+        00
+       ]
+ 031C  0000		      C 	origMode		dw	?	;
+ 031E  0000		      C 	currentMode		dw	?	;
+ 0320  0000		      C 	currentBank		dw	?	;
+ 0322  0000		      C 	banksPerPage	dw	?	;
+ 0324  0000		      C 	activePage		dw	?	;
+ 0326  0000		      C 	activePageOffset dw ?	;
+ 0328  0000		      C 	visiblePage		dw	?	;
+ 032A  0000		      C 	error			dw	?	;
+ 032C  0000		      C 	maxx			dw	?	;
+ 032E  0000		      C 	maxy			dw	?	;
+ 0330  0000		      C 	vwidth			dw	?	;
+ 0332  0000		      C 	vheight			dw	?	;
+ 0334  0000		      C 	fontSeg			dw	?
+ 0336  0000		      C 	fontOff			dw	?
+			      C VDCONTX ends
+			      C 
+			      C 
+			      C 
+ 0014			      C GWIND	struc
+ 0000  0000		      C 	xorg	dw	?			; x start
+ 0002  0000		      C 	yorg	dw	?			; ystart
+ 0004  0000		      C 	xend	dw	?
+ 0006  0000		      C 	yend	dw	?
+ 0008  0000		      C 	xsiz	dw	?			; size x
+ 000A  0000		      C 	ysiz	dw	?			; size y
+ 000C  0000		      C 	bcolor	dw	?			; background window color
+ 000E  0000		      C 	ccolor	dw	?			; character color
+ 0010  0000		      C 	currx	dw	?			; current character position
+ 0012  0000		      C 	curry	dw	?
+			      C GWIND	ends
+			      C 
+				 extrn activeWindow:near
+
+ 0000				_Text SEGMENT PUBLIC USE16
+				  assume CS:_Text, DS:_Text
+
+ 0000 0000 0000 0000 0000	 vc VDCONTX <?>
+       0000 0000 0000
+       0000 0000 0000
+       0000 0000 0000
+       0000
+       0001 [
+        56 45 53 41
+       ] 0000 00000000
+       0004 [
+        00
+       ] 00000000 0000
+       0000 00000000
+       00000000 00000000
+       00DE [
+        00
+       ]
+       0100 [
+        00
+       ] 0000 00 00 0000
+       0000 0000 0000
+       00000000 0000 0000
+       0000 00 00 00 00
+       00 00 00 00 00 00
+       00 00 00 00 00 00
+       00 00 00000000
+       00000000 0000
+       00CE [
+        00
+       ] 0000 0000 0000
+       0000 0000 0000
+       0000 0000 0000
+       0000 0000 0000
+       0000 0000
+				;
+				;   --- local storage used by rect functions ---
+				;
+ 0338 0000			xpos		dw	?		
+ 033A 0000			ypos		dw	?
+ 033C 0000			xend		dw	?
+ 033E 0000			yend		dw	?
+ 0340 0000			rctlines	dw	?
+ 0342 0000			rctcolor	dw	?
+ 0344 0000			rctwidth	dw	?
+ 0346 0000			rctheight	dw	?
+ 0348 0000			colmoffset	dw	?						    
+ 034A 0000			rowoffset	dw	?
+ 034C 00000000			strtoff		dd	?
+ 0350 0000			strtbnk		dw	?
+ 0352 00000000			endoff		dd	?
+ 0356 0000			endbnk		dw	?
+ 0358 0000			rectFunc	dw	0
+ 035A 0000			fntwidth	dw	?
+ 035C 000A			charx		dw	10
+ 035E 000A			chary		dw	10
+				;*****************************************************************************
+				;   VCCreate - Create a video context for the requested mode
+				;       inputs: AX -> Video mode
+				;		output: BX -> VDCONTX struct
+				;	
+				;*****************************************************************************
+				public VCCreate
+
+ 0360				VCCreate:
+				;
+				;   --- get the VDCONTX struct pointer --- for now just 1 ---
+				; 		
+ 0360  50				push	ax													 
+ 0361  51				push	cx
+ 0362  57				push	di
+					;push	es
+
+ 0363  BF 0000 R			mov		di,offset vc
+					assume di:ptr VDCONTX
+ 0366  89 85 031E			mov		[di].currentMode,ax
+				;
+				;   --- check video support ---
+				;
+ 036A  8D 5D 1C				lea		bx,[di].vbi
+ 036D  E8 0000 E			call	vbeGetInfo
+ 0370  74 03 E9 00FD			jnz		noevid
+
+				   assume bx:ptr VBEINFO
+
+ 0375  8A 07			   	mov		al,[bx]
+ 0377  3C 56			   	cmp		al,'V'
+ 0379  74 03 E9 00F4		   	jnz		noevid
+				   							    	    
+ 037E  43			   	inc		bx
+ 037F  8A 07			   	mov		al,[bx]
+ 0381  3C 45			   	cmp		al,'E'
+ 0383  74 03 E9 00EA		   	jnz		noevid
+
+ 0388  43			   	inc		bx
+ 0389  8A 07			   	mov		al,[bx]
+ 038B  3C 53			   	cmp		al,'S'
+ 038D  74 03 E9 00E0		   	jnz		noevid
+				;
+				;   -- check version ---
+				;
+ 0392  8B 47 04				mov		ax,[bx].vbeversion
+
+				;
+				;   --- get info on the mode we want ---
+				;
+ 0395  8B 8D 031E			mov		cx,[di].currentMode
+ 0399  8D 9D 021C			lea		bx,[di].vmi
+ 039D  E8 0000 E			call	vbeGetModeInfo
+ 03A0  74 03 E9 00CD			jnz		noevid
+
+				   assume bx:ptr MODEINFO
+
+ 03A5  8B 07				mov		ax,[bx].modeattributes
+ 03A7  83 E0 01				and		ax,1
+ 03AA  75 03 E9 00C3			jz		noevid
+
+ 03AF  8A 47 19				mov		al,[bx].bitsperpixel
+ 03B2  3C 08				cmp		al,8
+ 03B4  74 03 E9 00B9			jnz		noevid
+
+ 03B9  8B 47 12				mov		ax,[bx].xresolution
+ 03BC  89 85 0330			mov		[di].vwidth,ax
+ 03C0  48				dec		ax
+ 03C1  89 85 032C			mov		[di].maxx,ax
+ 03C5  8B 47 14				mov		ax,[bx].yresolution
+ 03C8  89 85 0332			mov		[di].vheight,ax
+ 03CC  48				dec		ax
+ 03CD  89 85 032E			mov		[di].maxy,ax
+
+ 03D1  B8 FFFF				mov	    ax,-1
+ 03D4  89 85 0320			mov		[di].currentBank,ax
+
+ 03D8  33 C0				xor		ax,ax
+ 03DA  89 85 0324			mov		[di].activePage,ax
+ 03DE  89 85 0326			mov		[di].activePageOffset,ax
+ 03E2  89 85 0328			mov		[di].visiblePage,ax
+
+ 03E6  8B 47 12				mov		ax,[bx].xresolution
+ 03E9  8B 4F 14				mov		cx,[bx].yresolution
+ 03EC  F7 E1				mul		cx
+ 03EE  42				inc		dx
+ 03EF  89 95 0322			mov		[di].banksPerPage,dx
+				;
+				;   --- save the origional mode ---
+				;
+ 03F3  E8 0000 E			call	vbeGetMode
+ 03F6  72 7A				jc		noevid
+ 03F8  89 9D 031C			mov		[di].origMode,bx
+				;
+				;   ---   set the new mode ---
+				;
+ 03FC  8B 9D 031E		    mov		bx,[di].currentMode
+ 0400  E8 0000 E			call	vbeSetMode
+ 0403  72 6D				jc		noevid
+
+				public getfnt
+ 0405				getfnt:
+
+ 0405  BB 0100				mov		bx,100h
+ 0408  B8 1130			    mov     ax, 1130h    ; Service to Get Pointer
+ 040B  CD 10			    int     10h                 ; Call VGA BIOS
+ 040D  72 63				jc		noevid
+ 040F  89 0E 035A R			mov		fntwidth,cx
+ 0413  8C 85 0334			mov		[di].fontSeg,es
+ 0417  89 AD 0336			mov		[di].fontOff,bp
+
+				;																 
+				;   --- populate the function pointers ---
+				;
+ 041B  B8 0360 R			mov		ax,offset VCCreate
+ 041E  89 05				mov		[di].Create,ax
+ 0420  B8 0478 R			mov		ax,offset VCDestroy
+ 0423  89 45 02				mov		[di].Destroy,ax
+ 0426  B8 0486 R			mov		ax,offset VCClear
+ 0429  89 45 04				mov		[di].Clear,ax
+ 042C  B8 0AEB R			mov		ax,offset getNumPages
+ 042F  89 45 06				mov		[di].getNumPages,ax
+ 0432  B8 04D0 R			mov		ax,offset setActivePage
+ 0435  89 45 08				mov		[di].setActivePage,ax
+ 0438  B8 04FE R			mov		ax,offset setVisiblePage
+ 043B  89 45 0A				mov		[di].setVisiblePage,ax
+ 043E  B8 0547 R			mov		ax,offset pixel
+ 0441  89 45 0C				mov		[di].pixel,ax
+ 0444  B8 0774 R			mov		ax,offset fillRect
+ 0447  89 45 0E				mov		[di].fillRect,ax
+ 044A  B8 07C0 R			mov		ax,offset drawChar 
+ 044D  89 45 12				mov		[di].drawChar,ax
+ 0450  B8 0595 R			mov		ax,offset drawLine 
+ 0453  89 45 14				mov		[di].drawLine,ax
+ 0456  B8 0717 R			mov		ax,offset drawRect
+ 0459  89 45 10				mov		[di].drawRect,ax
+ 045C  B8 0792 R			mov		ax,offset drawString
+ 045F  89 45 16				mov		[di].drawString,ax
+ 0462  B8 05C1 R			mov		ax,offset createWindow
+ 0465  89 45 18				mov		[di].createWindow,ax
+ 0468  B8 066C R			mov		ax,offset createButton
+ 046B  89 45 1A				mov		[di].createButton,ax
+ 046E  8B DF				mov		bx,di
+ 0470  EB 02				jmp		crtdone
+
+
+ 0472				noevid:
+ 0472  33 DB				xor		bx,bx
+ 0474				crtdone:
+
+					;pop		es
+ 0474  5F				pop		di
+ 0475  59				pop		cx
+ 0476  58				pop		ax
+ 0477  C3				ret
+
+				;*****************************************************************************
+				;   VCDestroy - Create a video context for the requested mode
+				;       inputs: BX -> VDCONTX struct
+				;		output: nothing - returns video back to origional mode
+				;*****************************************************************************
+ 0478				VCDestroy:
+ 0478  50					push	ax
+ 0479  57					push	di
+ 047A  8B FB					mov		di,bx
+					assume di:ptr VDCONTX
+ 047C  8B 9D 031C				mov		bx,[di].origMode
+ 0480  E8 0000 E				call	vbeSetMode
+ 0483  5F					pop		di
+ 0484  58					pop		ax
+ 0485  C3					ret
+				;*****************************************************************************
+				;   VCClear - Clears and fills the video with a color
+				;       inputs: AX = color
+				;				BX -> VDCONTX struct
+				;		output: nothing - 
+				;*****************************************************************************
+				public VCClear
+ 0486				VCClear:
+					assume bx:ptr VDCONTX
+ 0486  50				push	ax
+ 0487  53				push	bx
+ 0488  51				push	cx
+ 0489  52				push	dx
+ 048A  06				push	es
+
+ 048B  8B D0				mov		dx,ax		; save color
+				;    for (i = 0; i < banksPerPage; i++)
+ 048D  B9 0000				mov		cx,0
+ 0490				vcclp:
+				;    {
+				;        currentBank = i + activePageOffset;
+					
+ 0490  8B 87 0326			mov		ax,[bx].activePageOffset
+ 0494  03 C1				add		ax,cx
+ 0496  89 87 0320			mov		[bx].currentBank,ax
+				;        vbeSetBankAAddr(i + activePageOffset);
+ 049A  53				push	bx
+
+ 049B  BB 0000				mov		bx,0
+ 049E  E8 0000 E		    call	vbeSetBankAddr    
+					
+ 04A1  51				push	cx
+				;        memset(MK_FP(0xa000, 0), color, 0x8000);
+ 04A2  8B DA				mov		bx,dx			; get color
+ 04A4  BA A000				mov		dx,0a000h
+ 04A7  8E C2				mov		es,dx
+ 04A9  33 FF				xor		di,di
+ 04AB  B9 8000				mov		cx,8000h
+ 04AE  E8 0000 E			call	memset
+				;        memset(MK_FP(0xa000, 0x8000), color, 0x8000);
+					;mov		bx,dx			; get color
+ 04B1  BA A000				mov		dx,0a000h
+ 04B4  8E C2				mov		es,dx
+ 04B6  BF 8000				mov		di,8000h    
+ 04B9  B9 8000				mov		cx,8000h
+ 04BC  E8 0000 E			call	memset
+ 04BF  8B D3				mov		dx,bx
+ 04C1  59				pop		cx
+ 04C2  5B				pop		bx
+						
+ 04C3  41				inc		cx
+ 04C4  3B 8F 0322			cmp		cx,[bx].banksPerPage
+ 04C8  7C C6				jl		vcclp
+				;    }
+ 04CA  07				pop		es
+ 04CB  5A				pop		dx
+ 04CC  59				pop		cx
+ 04CD  5B				pop		bx
+ 04CE  58				pop		ax
+ 04CF  C3				ret
+				;*****************************************************************************
+				;   setActivePage - 
+				;       inputs: AX = page
+				;				BX -> VDCONTX struct
+				;		output: ax = page if ok else -1 
+				;*****************************************************************************
+ 04D0				setActivePage:
+ 04D0  53				push	bx
+ 04D1  51				push	cx
+ 04D2  52				push	dx
+					assume bx:ptr VDCONTX
+					
+ 04D3  83 F8 00				cmp		ax,0
+ 04D6  7C 1B				jl		badpage
+ 04D8  8B C8				mov		cx,ax
+ 04DA  E8 060E				call	getNumPages
+ 04DD  3B C1				cmp		ax,cx
+ 04DF  7D 12				jge		badpage
+
+ 04E1  89 8F 0324		   	mov		[bx].activePage,cx
+ 04E5  8B 87 0322		   	mov		ax,[bx].banksPerPage
+ 04E9  F7 E1			   	mul		cx
+ 04EB  89 87 0326		   	mov		[bx].activePageOffset,ax
+ 04EF  8B C1				mov		ax,cx
+ 04F1  EB 03				jmp		sapout
+ 04F3				badpage:
+ 04F3  B8 FFFF				mov		ax,-1
+ 04F6				sapout:
+ 04F6  5A				pop		dx
+ 04F7  59				pop		cx
+ 04F8  5B				pop		bx
+ 04F9  C3				ret
+
+				;*****************************************************************************
+				;   setVisiblePage - 
+				;       inputs: AX = page
+				;               BX -> VDCONTX struct
+				;		returns 0 if ok 
+				;*****************************************************************************
+ 04FA 0000			svpline	dw	?
+ 04FC 0000			svppixel	dw	?
+
+ 04FE				setVisiblePage:
+ 04FE  50					push	ax
+ 04FF  53					push	bx
+ 0500  51					push	cx
+ 0501  52					push	dx		
+
+				;    int16 pixel, line;
+				;    int32 address;
+				;
+				;    if (page < 0 || page >= getNumPages())
+				;    {
+				;        error = badPage;
+				;        return;
+				;    }
+ 0502  83 F8 00					cmp		ax,0
+ 0505  7C 37					jl		svpbadpage
+ 0507  8B C8					mov		cx,ax
+ 0509  E8 05DF					call	getNumPages
+ 050C  3B C1					cmp		ax,cx
+ 050E  7D 2E					jge		svpbadpage
+				;    visiblePage = page;
+ 0510  89 8F 0328				mov		[bx].visiblePage,cx
+				;    address = ((int32)banksPerPage * (int32)page) << 16;
+ 0514  8B 87 0322				mov		ax,[bx].banksPerPage
+ 0518  F7 E1					mul		cx
+ 051A  8B D0					mov		dx,ax
+ 051C  33 C0					xor		ax,ax
+				;    line = address / (int32)modeInfo.width;
+				;    pixel = address % (int32)modeInfo.width;
+ 051E  8D 9F 021C				lea		bx,[bx].vmi
+						assume bx:ptr MODEINFO
+ 0522  8B 4F 12					mov		cx,[bx].xresolution
+
+ 0525  52					push	dx
+ 0526  50					push	ax
+ 0527  F7 F1					div		cx
+						;mov		line,ax
+						;mov		pixel,dx
+
+				;    while(inp(0x3da) & 0x09);    // wait for blanking to end
+ 0529  E8 0000 E				call	waitBlankEnd
+				;    vbeSetDisplayStart(pixel, line);
+ 052C  8B D8					mov		bx,ax
+ 052E  8B C2					mov		ax,dx
+ 0530  E8 0000 E				call	vbeSetDisplayStart
+ 0533  58					pop		ax
+ 0534  5A					pop		dx
+				;    while(!(inp(0x3da) & 0x08));    // wait for vertical retrace
+ 0535  E8 0000 E				call	waitRetrace
+ 0538  B0 00					mov		al,0
+ 053A  0A C0					or		al,al
+ 053C  EB 04					jmp		svpdone
+ 053E				svpbadpage:
+ 053E  B0 01					mov		al,1
+ 0540  0A C0					or		al,al
+ 0542				svpdone:
+ 0542  5A					pop		dx
+ 0543  59					pop		cx
+ 0544  5B					pop		bx
+ 0545  58					pop		ax
+ 0546  C3					ret
+
+				;*****************************************************************************
+				;   pixel - 
+				;       inputs: AX = color
+				;				BX -> VDCONTX struct
+				;				CX = x loc
+				;               DX = y loc
+				;		output: ax = page if ok else -1 
+				;*****************************************************************************
+				public pixel
+ 0547				pixel:
+ 0547  53					push	bx
+ 0548  06					push	es
+ 0549  57					push	di
+ 054A  51					push	cx
+								
+					assume bx:ptr VDCONTX
+				    ;int32 offset;
+				    ;int16 bank;
+				    ;uint8 *address;
+					;//
+				    ;// first clip to the mode width and height
+				    ;//
+				    ;if (x < 0 || x > maxx || y < 0 || y > maxy)
+				    ;{
+				    ;    return;
+				    ;}
+ 054B  83 F9 00					cmp		cx,0
+ 054E  72 40					jb		pixbad
+ 0550  3B 8F 032C				cmp		cx,[bx].maxx
+ 0554  74 3A					jz		pixbad
+ 0556  83 FA 00					cmp		dx,0
+ 0559  72 35					jb		pixbad
+ 055B  3B 97 032E				cmp		dx,[bx].maxy
+ 055F  74 2F					jz		pixbad
+				    ;//
+				    ;// compute the pixel address and then convert
+				    ;// it into a bank number and an offset.
+				    ;// finally generate a pointer into the
+				    ;// video page
+				    ;//
+ 0561  50					push	ax
+ 0562  52					push	dx
+						;offset = ((int32)y * (int32)modeInfo.width) + (int32)x;
+ 0563  8B 87 0330				mov		ax,[bx].vwidth
+ 0567  F7 E2					mul		dx
+ 0569  03 C1					add		ax,cx
+ 056B  73 01					jnc		pixnc
+ 056D  42					inc		dx
+ 056E				pixnc:
+				    ;bank = (offset >> 16) + activePageOffset;
+ 056E  03 97 0326		    	add		dx,[bx].activePageOffset ; dx = bank
+				    ;address = (uint8 *) MK_FP(0xa000, (int)(offset & 0xffffL));
+ 0572  B9 A000					mov		cx,0a000h
+ 0575  8E C1					mov		es,cx		; es:di address
+ 0577  8B F8					mov		di,ax
+				    ;//
+				    ;// select the video page if we need to
+				    ;//
+				    ;if (bank != currentBank)
+ 0579  3B 97 0320				cmp		dx,[bx].currentBank
+ 057D  74 0E					jz		pixbnkok
+				    ;{
+				    ;    currentBank = bank;
+				    ;    vbeSetBankAAddr(currentBank);
+				    ;}
+ 057F  53					push	bx
+ 0580  89 97 0320				mov		[bx].currentBank,dx
+ 0584  8B C2					mov		ax,dx
+ 0586  BB 0000					mov		bx,0				     
+ 0589  E8 0000 E				call	vbeSetBankAddr
+ 058C  5B					pop		bx
+				 
+ 058D				 pixbnkok:
+				 	;
+				    ;//
+				    ;// write the pixel
+				    ;//
+				    ;*address = (uint8)color;
+ 058D  5A					pop		dx
+ 058E  58					pop		ax
+ 058F  AA					stosb
+ 0590				pixbad:
+
+ 0590  59					pop		cx
+ 0591  5F					pop		di
+ 0592  07					pop		es
+ 0593  5B					pop		bx
+ 0594  C3					ret
+				;}
+
+				;*****************************************************************************
+				;   drawLine - 
+				;       inputs: AX = color
+				;				BX -> VDCONTX struct
+				;				CX = x start loc
+				;               DX = y start loc
+				;				DI = x end 
+				;				SI = yend 
+				;		output: ax = 0 success 
+				;*****************************************************************************
+ 0595				drawLine:
+ 0595  51					push	cx
+ 0596  52					push	dx
+					assume	bx:ptr VDCONTX
+ 0597  3B CF					cmp		cx,di
+ 0599  75 09					jnz		dl_not_single
+ 059B  3B D6					cmp		dx,si
+ 059D  75 05					jnz		dl_not_single
+ 059F  E8 FFA5					call	pixel
+ 05A2  EB 1A					jmp		dl_done
+ 05A4				dl_not_single:
+ 05A4  3B CF					cmp		cx,di
+ 05A6  75 0A					jnz		dl_ckHorz
+				; -- verticle line --
+
+ 05A8				vertlp:
+ 05A8  E8 FF9C					call	pixel
+ 05AB  42					inc		dx
+ 05AC  3B D6					cmp		dx,si
+ 05AE  75 F8					jnz		vertlp
+ 05B0  EB 0C					jmp		dl_done	  
+
+ 05B2				dl_ckHorz:
+ 05B2  3B D6					cmp		dx,si
+ 05B4  75 08					jnz		dl_done
+ 05B6				horzlp:
+ 05B6  E8 FF8E					call	pixel
+ 05B9  41					inc		cx
+ 05BA  3B CF					cmp		cx,di
+ 05BC  75 F8					jnz		horzlp
+
+ 05BE				dl_done:
+ 05BE  5A					pop		dx
+ 05BF  59					pop		cx
+ 05C0  C3					ret
+
+				;*****************************************************************************
+				;   createWindow - 
+				;       inputs: SI ->GWIND struct
+				;				BX -> VDCONTX struct
+				;		output: ax = 0 success 
+				;*****************************************************************************
+ 05C1				createWindow:
+ 05C1  50				push	ax
+ 05C2  51				push	cx
+ 05C3  52				push	dx
+ 05C4  57				push	di
+ 05C5  55				push	bp
+
+					assume si:ptr GWIND
+ 05C6  8B 0C				mov		cx,[si].xorg
+ 05C8  8B 44 08				mov		ax,[si].xsiz
+ 05CB  03 C1				add		ax,cx
+ 05CD  89 44 04				mov		[si].xend,ax	
+
+ 05D0  8B 54 02				mov		dx,[si].yorg
+ 05D3  8B 44 0A				mov		ax,[si].ysiz
+ 05D6  03 C2				add		ax,dx
+ 05D8  89 44 06				mov		[si].yend,ax	
+					
+ 05DB  8B 7C 08				mov		di,[si].xsiz
+
+ 05DE  8B 44 0C				mov		ax,[si].bcolor
+
+ 05E1  56				push	si
+ 05E2  8B 74 0A				mov		si,[si].ysiz
+ 05E5  FF 57 0E				call	[bx].fillRect
+ 05E8  5E				pop		si	
+
+				; -- hilite the box	top --
+ 05E9  8B 0C				mov		cx,[si].xorg
+ 05EB  8B 54 02				mov		dx,[si].yorg
+ 05EE  8B 7C 08				mov		di,[si].xsiz
+ 05F1  03 F9				add		di,cx
+ 05F3  BD 0002				mov		bp,2
+ 05F6  B8 0010				mov		ax,16
+
+ 05F9  56				push	si
+ 05FA  8B F2				mov		si,dx
+ 05FC				cwlp1:
+ 05FC  FF 57 14				call	[bx].drawLine
+ 05FF  42				inc		dx
+ 0600  46				inc		si
+ 0601  4D				dec		bp
+ 0602  75 F8				jnz		cwlp1
+ 0604  5E				pop		si
+
+				; -- hilite the left side -
+ 0605  8B 0C				mov		cx,[si].xorg
+ 0607  8B 54 02				mov		dx,[si].yorg
+ 060A  8B F9				mov		di,cx
+ 060C  BD 0002				mov		bp,2
+ 060F  B8 0010				mov		ax,16
+
+ 0612  56				push	si
+ 0613  8B 74 0A				mov		si,[si].ysiz
+ 0616  03 F2				add		si,dx
+ 0618				cwlp2:
+ 0618  FF 57 14				call	[bx].drawLine
+ 061B  41				inc		cx
+ 061C  47				inc		di
+ 061D  4D				dec		bp
+ 061E  75 F8				jnz		cwlp2
+ 0620  5E				pop		si
+
+				; -- hilite the bottom
+ 0621  BD 0001				mov		bp,1
+ 0624  B8 000F				mov		ax,15
+ 0627  8B 0C				mov		cx,[si].xorg
+ 0629  83 C1 03				add		cx,3
+ 062C  8B 54 02				mov		dx,[si].yorg								   
+ 062F  03 54 0A				add		dx,[si].ysiz							
+
+ 0632  8B 7C 08				mov		di,[si].xsiz
+ 0635  03 F9				add		di,cx
+ 0637  83 EF 03				sub		di,3
+
+ 063A  56				push	si
+ 063B  8B F2				mov		si,dx
+ 063D				cwlp3:
+ 063D  FF 57 14				call	[bx].drawLine
+ 0640  4A				dec		dx
+ 0641  4E				dec		si
+ 0642  4D				dec		bp
+ 0643  75 F8				jnz		cwlp3
+ 0645  5E				pop		si
+
+				; -- hilite the right side --
+ 0646  8B 0C				mov		cx,[si].xorg
+ 0648  03 4C 08				add		cx,[si].xsiz	
+ 064B  8B 54 02				mov		dx,[si].yorg
+ 064E  8B F9				mov		di,cx
+ 0650  BD 0001				mov		bp,1
+ 0653  B8 000F				mov		ax,15
+
+ 0656  56				push	si
+ 0657  8B 74 0A				mov		si,[si].ysiz
+ 065A  03 F2				add		si,dx
+ 065C  46				inc si
+ 065D				cwlp4:
+ 065D  FF 57 14				call	[bx].drawLine
+ 0660  49				dec		cx
+ 0661  4F				dec		di
+ 0662  4D				dec		bp
+ 0663  75 F8				jnz		cwlp4
+ 0665  5E				pop		si
+
+
+ 0666  5D				pop		bp
+ 0667  5F				pop		di
+ 0668  5A				pop		dx
+ 0669  59				pop		cx
+ 066A  58				pop		ax
+ 066B  C3				ret
+				;*****************************************************************************
+				;   createButton - 
+				;       inputs: SI ->GWIND struct
+				;				BX -> VDCONTX struct
+				;		output: ax = 0 success 
+				;*****************************************************************************
+ 066C				createbutton:
+ 066C  50				push	ax
+ 066D  51				push	cx
+ 066E  52				push	dx
+ 066F  57				push	di
+ 0670  55				push	bp
+
+					assume si:ptr GWIND
+ 0671  8B 0C				mov		cx,[si].xorg
+ 0673  8B 44 08				mov		ax,[si].xsiz
+ 0676  03 C1				add		ax,cx
+ 0678  89 44 04				mov		[si].xend,ax	
+
+ 067B  8B 54 02				mov		dx,[si].yorg
+ 067E  8B 44 0A				mov		ax,[si].ysiz
+ 0681  03 C2				add		ax,dx
+ 0683  89 44 06				mov		[si].yend,ax	
+					
+ 0686  8B 7C 08				mov		di,[si].xsiz
+
+ 0689  8B 44 0C				mov		ax,[si].bcolor
+
+ 068C  56				push	si
+ 068D  8B 74 0A				mov		si,[si].ysiz
+ 0690  FF 57 0E				call	[bx].fillRect
+ 0693  5E				pop		si	
+
+				; -- hilite the box	top --
+ 0694  8B 0C				mov		cx,[si].xorg
+ 0696  8B 54 02				mov		dx,[si].yorg
+ 0699  8B 7C 08				mov		di,[si].xsiz
+ 069C  03 F9				add		di,cx
+ 069E  BD 0002				mov		bp,2
+ 06A1  B8 000F				mov		ax,15
+
+ 06A4  56				push	si
+ 06A5  8B F2				mov		si,dx
+ 06A7				cblp1:
+ 06A7  FF 57 14				call	[bx].drawLine
+ 06AA  42				inc		dx
+ 06AB  46				inc		si
+ 06AC  4D				dec		bp
+ 06AD  75 F8				jnz		cblp1
+ 06AF  5E				pop		si
+
+				; -- hilite the left side -
+ 06B0  8B 0C				mov		cx,[si].xorg
+ 06B2  8B 54 02				mov		dx,[si].yorg
+ 06B5  8B F9				mov		di,cx
+ 06B7  BD 0002				mov		bp,2
+ 06BA  B8 000F				mov		ax,15
+
+ 06BD  56				push	si
+ 06BE  8B 74 0A				mov		si,[si].ysiz
+ 06C1  03 F2				add		si,dx
+ 06C3				cblp2:
+ 06C3  FF 57 14				call	[bx].drawLine
+ 06C6  41				inc		cx
+ 06C7  47				inc		di
+ 06C8  4D				dec		bp
+ 06C9  75 F8				jnz		cblp2
+ 06CB  5E				pop		si
+
+				; -- hilite the bottom
+ 06CC  BD 0002				mov		bp,2
+ 06CF  B8 0010				mov		ax,16
+ 06D2  8B 0C				mov		cx,[si].xorg
+ 06D4  83 C1 03				add		cx,3
+ 06D7  8B 54 02				mov		dx,[si].yorg								   
+ 06DA  03 54 0A				add		dx,[si].ysiz							
+
+ 06DD  8B 7C 08				mov		di,[si].xsiz
+ 06E0  03 F9				add		di,cx
+ 06E2  83 EF 03				sub		di,3
+
+ 06E5  56				push	si
+ 06E6  8B F2				mov		si,dx
+ 06E8				cblp3:
+ 06E8  FF 57 14				call	[bx].drawLine
+ 06EB  4A				dec		dx
+ 06EC  4E				dec		si
+ 06ED  4D				dec		bp
+ 06EE  75 F8				jnz		cblp3
+ 06F0  5E				pop		si
+
+				; -- hilite the right side --
+ 06F1  8B 0C				mov		cx,[si].xorg
+ 06F3  03 4C 08				add		cx,[si].xsiz	
+ 06F6  8B 54 02				mov		dx,[si].yorg
+ 06F9  8B F9				mov		di,cx
+ 06FB  BD 0002				mov		bp,2
+ 06FE  B8 0010				mov		ax,16
+
+ 0701  56				push	si
+ 0702  8B 74 0A				mov		si,[si].ysiz
+ 0705  03 F2				add		si,dx
+ 0707  46				inc si
+ 0708				cblp4:
+ 0708  FF 57 14				call	[bx].drawLine
+ 070B  49				dec		cx
+ 070C  4F				dec		di
+ 070D  4D				dec		bp
+ 070E  75 F8				jnz		cblp4
+ 0710  5E				pop		si
+
+
+ 0711  5D				pop		bp
+ 0712  5F				pop		di
+ 0713  5A				pop		dx
+ 0714  59				pop		cx
+ 0715  58				pop		ax
+ 0716  C3				ret
+
+				;*****************************************************************************
+				;   drawRect - 
+				;       inputs: AX = color
+				;				BX -> VDCONTX struct
+				;				CX = x loc
+				;               DX = y loc
+				;				DI = width
+				;				SI = height
+				;		output: ax = 0 success 
+				;*****************************************************************************
+				public drawRect
+ 0717				drawRect:
+ 0717  50					push	ax
+ 0718  51					push	cx
+ 0719  52					push	dx
+				;
+				;   --- save parameters ---
+				;
+ 071A  A3 0342 R				mov		rctcolor,ax
+ 071D  89 0E 0338 R				mov		xpos,cx			; x position
+ 0721  89 16 033A R				mov		ypos,dx			; y position
+ 0725  03 CF					add		cx,di			; calc end x
+ 0727  89 0E 033C R				mov		xend,cx
+ 072B  03 D6					add		dx,si			; and end y
+ 072D  89 16 033E R				mov		yend,dx
+ 0731  89 3E 0344 R				mov		rctwidth,di		; widths
+ 0735  89 36 0346 R				mov		rctheight,si
+				;
+				;   --- draw top horizontal line ---
+				;		
+ 0739  8B 0E 0338 R				mov		cx,xpos
+ 073D  8B 16 033A R				mov		dx,ypos
+ 0741  A1 0342 R				mov		ax,rctcolor
+ 0744				toplp:
+ 0744  E8 FE00					call	pixel
+ 0747  41					inc		cx
+ 0748  3B 0E 033C R				cmp		cx,xend
+ 074C  75 F6					jnz		toplp
+ 074E  49					dec		cx
+				;		
+				;   --- right side ---
+				;
+ 074F				rightlp:
+ 074F  E8 FDF5					call	pixel
+ 0752  42					inc		dx
+ 0753  3B 16 033E R				cmp		dx,yend
+ 0757  75 F6					jnz		rightlp
+ 0759  4A					dec		dx
+				;
+				;   --- bottom ---
+				;
+ 075A				bottomlp:
+ 075A  E8 FDEA					call	pixel
+ 075D  49					dec		cx
+ 075E  3B 0E 0338 R				cmp		cx,xpos
+ 0762  73 F6					jnb		bottomlp
+ 0764  41					inc		cx
+ 0765  4A					dec		dx
+ 0766				leftlp:
+ 0766  E8 FDDE					call	pixel
+ 0769  4A					dec		dx
+ 076A  3B 16 033A R				cmp		dx,ypos
+ 076E  73 F6					jnb		leftlp
+ 0770  5A					pop		dx
+ 0771  59					pop		cx
+ 0772  58					pop		ax
+ 0773  C3					ret
+				;*****************************************************************************
+				;   fillRect - 
+				;       inputs: AX = color
+				;				BX -> VDCONTX struct
+				;				CX = x loc
+				;               DX = y loc
+				;				DI = width
+				;				SI = height
+				;		output: ax = 0 success 
+				;*****************************************************************************
+				public fillRect
+ 0774				fillRect:
+				assume bx:ptr VDCONTX
+ 0774  50					push	ax
+ 0775  A3 0342 R				mov		rctcolor,ax
+ 0778  B8 0780 R				mov		ax,offset fillr
+ 077B  E8 010A					call	processRect
+ 077E  58					pop		ax
+ 077F  C3					ret
+
+
+				;*****************************************************************************
+				;   fillr -  callback
+				;       inputs: ES:DI -> video memory
+				;				BX -> VDCONTX struct
+				;				CX = width
+				;				DX = column offset (
+				;				AX = row offset
+				;		output:  
+				;*****************************************************************************
+
+
+ 0780				fillr:
+				 ;            memset(address, color, width);
+				 ;            address += modeInfo.width;
+ 0780  50					push	ax
+ 0781  53			 		push	bx
+ 0782  51			 		push	cx
+ 0783  06			 		push	es
+ 0784  57					push	di
+					
+ 0785  8B 1E 0342 R		 		mov		bx,rctcolor
+					
+ 0789  E8 0000 E		 		call	memset
+
+ 078C  5F					pop		di
+ 078D  07					pop		es
+ 078E  59			 		pop		cx
+ 078F  5B			 		pop		bx
+ 0790  58					pop		ax
+ 0791  C3					ret
+
+				;*****************************************************************************
+				;   drawString - 
+				;       inputs: AX = color ( 0-256)
+				;				BX -> VDCONTX struct
+				;				CX = xloc	 0 use last location
+				;				DX = yloc	 0
+				;				DI = bkcolor
+				;				SI = null terminated string
+				;		output:  
+				;*****************************************************************************
+ 0792				drawString:
+ 0792  50				push	ax
+ 0793  51				push	cx
+ 0794  52				push	dx
+ 0795  57				push	di
+ 0796  1E				push	ds
+ 0797  56				push	si
+ 0798  86 C4				xchg	al,ah
+ 079A  0B D2				or		dx,dx
+ 079C  75 0A				jnz		charloop
+ 079E  0B C9				or		cx,cx
+ 07A0  75 06				jnz		charloop
+ 07A2  B9 0000				mov		cx,0
+ 07A5  BA 0000				mov		dx,0
+ 07A8				charloop:
+ 07A8  AC				lodsb
+ 07A9  0A C0				or		al,al
+ 07AB  74 05				jz		chardone
+ 07AD  FF 57 12				call	[bx].drawChar
+					;mov		cx,charx
+					;mov		dx,chary
+
+ 07B0  EB F6				jmp		charloop
+
+ 07B2				chardone:
+ 07B2  5E			 	pop		si
+ 07B3  1F				pop		ds
+ 07B4  5F				pop		di
+ 07B5  5A				pop		dx
+ 07B6  59				pop		cx
+ 07B7  58				pop		ax
+ 07B8  C3				ret
+
+				;*****************************************************************************
+				;   drawChar - 
+				;       inputs: AL = char
+				;				AH = color ( 0-256)
+				;				BX -> VDCONTX struct
+				;				CX = xloc
+				;				DX = yloc
+				;				DI = bkcolor
+				;		output:  
+				;*****************************************************************************
+ 07B9 00			vchar		db	?
+ 07BA 00			cchar		db	?
+ 07BB 00			bclr		db	?
+ 07BC 0000			cfontseg	dw	?
+ 07BE 0000			cfontoff	dw	?
+
+				.386
+					assume bx:ptr VDCONTX
+				public drawChar
+ 07C0				drawChar:
+ 07C0  50					push	ax
+						;push	cx
+						;push	dx
+ 07C1  56					push	si
+ 07C2  57					push	di
+ 07C3  06					push	es
+
+ 07C4  8B 36 0000 E				mov		si,word ptr activeWindow
+						assume si:ptr GWIND
+ 07C8  50					push	ax
+ 07C9  8B 44 0C					mov		ax,[si].bcolor
+ 07CC  A2 07BB R				mov		bclr,al
+ 07CF  8B 44 0E					mov		ax,[si].ccolor
+ 07D2  A2 07BA R				mov		cchar,al
+ 07D5  58					pop		ax
+
+ 07D6  0B D2					or		dx,dx
+ 07D8  75 0A					jnz		dc1
+ 07DA  0B C9					or		cx,cx
+ 07DC  75 06					jnz		dc1
+ 07DE  8B 4C 10					mov		cx,[si].currx
+ 07E1  8B 54 12					mov		dx,[si].curry
+ 07E4				dc1:
+
+ 07E4  3C 0D					cmp		al,0dh
+ 07E6  75 07					jnz		dcCklf
+ 07E8  8B 0C					mov		cx,[si].xorg
+ 07EA  83 C1 04					add		cx,4
+ 07ED  EB 5E					jmp		chdone
+ 07EF				dcCklf:
+ 07EF  3C 0A					cmp		al,0ah
+ 07F1  75 05					jnz		dc2
+ 07F3  83 C2 10					add		dx,16
+ 07F6  EB 55					jmp		chdone
+
+ 07F8				dc2:
+ 07F8  3B 4C 04					cmp		cx,[si].xend
+ 07FB  72 08					jb		dc3
+ 07FD  8B 0C					mov		cx,[si].xorg
+ 07FF  83 C1 04					add		cx,4
+ 0802  83 C2 10					add		dx,16
+ 0805				dc3:		
+ 0805  89 4C 10					mov		[si].currx,cx
+ 0808  A2 07B9 R				mov		vchar,al
+ 080B  8B C7					mov		ax,di
+ 080D  A2 07BB R				mov		bclr,al
+				;
+				;		--- get pointer to font ---
+				;
+ 0810  A0 07B9 R				mov		al,vchar
+ 0813  32 E4					xor		ah,ah
+
+ 0815  52					push	dx
+ 0816  F7 26 035A R			   	mul		fntwidth
+ 081A  5A					pop		dx
+ 081B  03 87 0336				add		ax,[bx].fontOff
+ 081F  A3 07BE R				mov		cfontoff,ax
+ 0822				fonst:	
+					
+ 0822  8B 87 0334				mov		ax,[bx].fontSeg
+ 0826  A3 07BC R				mov		cfontseg,ax
+ 0829  32 E4					xor		ah,ah
+ 082B  BF 0008					mov	   	di,8
+
+ 082E  56					push	si
+ 082F  8B 36 035A R				mov		si,fntwidth
+ 0833  B8 0858 R				mov		ax,offset charr
+ 0836  E8 004F					call	processRect
+ 0839  5E					pop		si
+
+ 083A  8B 4C 10					mov		cx,[si].currx
+ 083D  83 C1 07					add		cx,7
+ 0840  3B 4C 04					cmp		cx,[si].xend
+ 0843  72 08					jb		chdone
+ 0845  8B 0C					mov		cx,[si].xorg
+ 0847  83 C1 04					add		cx,4
+ 084A  83 C2 10					add		dx,16
+ 084D				chdone:
+ 084D  89 4C 10					mov		[si].currx,cx
+ 0850  89 54 12					mov		[si].curry,dx
+						
+ 0853  07					pop		es
+ 0854  5F					pop		di
+ 0855  5E					pop		si
+						;pop		dx
+						;pop		cx
+ 0856  58					pop		ax
+ 0857  C3					ret
+				;*****************************************************************************
+				;   charr -  callback
+				;       inputs: ES:DI -> video memory
+				;				BX -> VDCONTX struct
+				;				CX = width
+				;				DX = column offset 
+				;				AX = row offset
+				;		output:  
+				;*****************************************************************************
+ 0858				charr:
+ 0858  50					push	ax
+ 0859  53					push	bx
+ 085A  51					push	cx
+ 085B  52					push	dx
+ 085C  57					push	di
+						
+ 085D  06					push	es
+ 085E  56					push	si
+ 085F  8E 06 07BC R			   	mov		es,cfontseg
+ 0863  8B 36 07BE R				mov		si,cfontoff
+ 0867  8B D8				   	mov		bx,ax
+ 0869  26: 8A 00				mov		al,es:[si][bx]	   ; get the current row of dots
+
+ 086C  5E					pop		si
+ 086D  07					pop		es
+					   
+ 086E  F8					clc
+ 086F				chrloop:		
+ 086F  8A 1E 07BB R				mov		bl,bclr 
+ 0873  D0 D0					rcl		al,1
+ 0875  73 04					jnc		stbk
+ 0877  8A 1E 07BA R				mov		bl,cchar
+ 087B				stbk:		
+ 087B  50					push	ax
+ 087C  8A C3					mov		al,bl
+ 087E  AA					stosb
+ 087F  58					pop		ax
+ 0880  E2 ED					loop	chrloop
+
+						;mov		ax,cfontoff
+						;add		ax,8
+						;mov		cfontoff,ax
+
+ 0882  5F					pop		di
+ 0883  5A					pop		dx
+ 0884  59					pop		cx
+ 0885  5B					pop		bx
+ 0886  58					pop		ax
+ 0887  C3					ret
+
+				;*****************************************************************************
+				;   processRect - 
+				;       inputs: AX = callback ptr 
+				;				BX -> VDCONTX struct
+				;				CX = x loc
+				;               DX = y loc
+				;				DI = width
+				;				SI = height
+				;		output: ax = 0 success 
+				;
+				;		notes: The callback	function is passed the screen memory address,
+				;              width, row, col offset ( 0 unless clipped) 
+				;*****************************************************************************
+ 0888				processRect:
+ 0888  50					push	ax
+ 0889  53					push	bx
+ 088A  51					push	cx
+ 088B  52					push	dx
+ 088C  56					push	si
+ 088D  57					push	di
+ 088E  06					push	es
+				assume bx:ptr VDCONTX
+				;
+				;   --- save callback, start position and calc end position ---
+				;
+ 088F  A3 0358 R				mov		rectFunc,ax
+ 0892  89 0E 0338 R				mov		xpos,cx			; x position
+ 0896  89 16 033A R				mov		ypos,dx			; y position
+ 089A  03 CF					add		cx,di			; calc end x
+ 089C  49					dec		cx
+ 089D  89 0E 033C R				mov		xend,cx
+ 08A1  03 D6					add		dx,si			; and end y
+ 08A3  4A					dec		dx
+ 08A4  89 16 033E R				mov		yend,dx
+ 08A8  89 3E 0344 R				mov		rctwidth,di		; widths
+ 08AC  89 36 0346 R				mov		rctheight,si
+ 08B0  33 C0					xor		ax,ax
+ 08B2  A3 0348 R				mov		colmoffset,ax
+ 08B5  A3 034A R				mov		rowoffset,ax
+				;
+				;   --- clip to the screen ---
+				;
+ 08B8  A1 0338 R				mov		ax,xpos
+ 08BB  83 F8 00					cmp		ax,0			; check for starting x off screen
+ 08BE  7D 0C					jge		fr1
+ 08C0  83 E8 00					sub		ax,0
+ 08C3  A3 0348 R				mov		colmoffset,ax	; set offset
+ 08C6  C7 06 0338 R 0000			mov		xpos,0	
+ 08CC				fr1:
+ 08CC  A1 033C R				mov		ax,xend			; or off the end
+ 08CF  3B 87 032C				cmp		ax,[bx].maxx
+ 08D3  7E 07					jle		fr2
+ 08D5  8B 87 032C				mov		ax,[bx].maxx
+ 08D9  A3 033C R				mov		xend,ax
+ 08DC				fr2:
+ 08DC  A1 033A R				mov		ax,ypos			; check for y starting off screen
+ 08DF  83 F8 00					cmp		ax,0
+ 08E2  7D 0C					jge		fr3
+ 08E4  83 E8 00					sub		ax,0
+ 08E7  A3 034A R				mov		rowoffset,ax	; set offset
+ 08EA  C7 06 033A R 0000			mov		ypos,0	
+ 08F0				fr3:
+ 08F0  A1 033E R				mov		ax,yend			; or off the end
+ 08F3  3B 87 032E				cmp		ax,[bx].maxy
+ 08F7  7E 07					jle		fr4
+ 08F9  8B 87 032E				mov		ax,[bx].maxy
+ 08FD  A3 033E R				mov		yend,ax
+ 0900				fr4:
+ 0900  A1 033E R				mov		ax,yend			; check if anything left to display
+ 0903  3B 06 033A R				cmp		ax,ypos
+ 0907  7C 09					jl		norect
+					
+ 0909  A1 033C R				mov		ax,xend
+ 090C  3B 06 0338 R				cmp		ax,xpos
+ 0910  7F 03					jg		havrect
+ 0912				norect:
+ 0912  E9 01CE					jmp		rectdone
+				;
+				;   --- somthing to display ---
+				; 
+ 0915				havrect:
+ 0915  A1 033C R		  	 	mov		ax,xend		 	; calc width
+ 0918  2B 06 0338 R				sub		ax,xpos
+ 091C  8B F8					mov		di,ax
+ 091E  A3 0344 R				mov		rctwidth,ax		
+				;
+				;    --- compute the start and end pages ---
+				;    
+ 0921  8B 87 0330				mov		ax,[bx].vwidth
+ 0925  8B 16 033A R				mov		dx,ypos
+ 0929  8B 0E 0338 R				mov		cx,xpos
+ 092D  F7 E2					mul		dx
+ 092F  03 C1					add		ax,cx
+ 0931  73 01					jnc		rrct2
+ 0933  42					inc		dx
+ 0934				rrct2:
+ 0934  A3 034C R				mov		word ptr strtoff,ax
+ 0937  89 16 034E R				mov		word ptr strtoff+2,dx
+						; startBank = (offset >> 16) + activePageOffset;
+ 093B  03 97 0326		    	add		dx,[bx].activePageOffset ; dx = bank
+ 093F  89 16 0350 R				mov		strtbnk,dx
+						; endOffset = ((int32)y2 * (int32)modeInfo.width) + (int32)x2;
+ 0943  8B 87 0330				mov		ax,[bx].vwidth
+ 0947  8B 16 033E R				mov		dx,yend
+ 094B  8B 0E 033C R				mov		cx,xend
+ 094F  F7 E2					mul		dx
+ 0951  03 C1					add		ax,cx
+ 0953  73 01					jnc		rrct3
+ 0955  42					inc		dx
+ 0956				rrct3:
+ 0956  A3 0352 R				mov		word ptr endoff,ax
+ 0959  89 16 0354 R				mov		word ptr endoff+2,dx
+						; endBank = (endOffset >> 16) + activePageOffset;
+ 095D  03 97 0326		    	add		dx,[bx].activePageOffset ; dx = bank
+ 0961  89 16 0356 R				mov		endbnk,dx
+				;   
+				;    --- select the video page if we need to
+				;    
+ 0965  8B 16 0350 R				mov		dx,strtbnk				; check current bank
+ 0969  3B 97 0320				cmp		dx,[bx].currentBank
+ 096D  74 0E					jz		rctbnkok
+
+ 096F  53					push	bx						; set the bank we need
+ 0970  89 97 0320				mov		[bx].currentBank,dx
+ 0974  8B C2					mov		ax,dx
+ 0976  BB 0000					mov		bx,0				     
+ 0979  E8 0000 E				call	vbeSetBankAddr
+ 097C  5B					pop		bx
+ 097D				rctbnkok:
+				;
+				;   --- check if all in one bank ---
+				;
+ 097D  A1 0350 R				mov		ax,strtbnk
+ 0980  3B 06 0356 R				cmp		ax,endbnk
+ 0984  75 31					jnz		multibnk	
+				;
+				;   --- one bank, do it in one pass ---
+				;
+ 0986  06					push	es
+ 0987  8B 3E 034C R				mov		di,word ptr strtoff		
+ 098B  BA A000					mov		dx,0a000h
+ 098E  8E C2					mov		es,dx			;
+ 0990  8B 0E 033A R				mov		cx,ypos
+ 0994  B8 0000					mov		ax,0
+ 0997				srctlp:		
+ 0997  51			 		push	cx
+ 0998  8B 0E 0344 R		 		mov		cx,rctwidth
+				;       inputs: ES:DI -> video memory
+				;				BX -> VDCONTX struct
+				;				CX = width
+				;               DX = Column offset
+ 099C  BA 0000					mov		dx,0
+ 099F  FF 16 0358 R				call	rectFunc
+ 09A3  40					inc		ax
+ 09A4  59			 		pop		cx
+ 09A5  41			 		inc		cx
+ 09A6  3B 0E 033E R		 		cmp		cx,yend
+ 09AA  7F 07					jg		sbfl1
+
+ 09AC  03 BF 0330				add		di,[bx].vwidth
+ 09B0  EB E5			 		jmp		srctlp
+ 09B2  40					inc		ax
+ 09B3				sbfl1:
+ 09B3  07					pop		es
+ 09B4  E9 012C					jmp		rectdone
+
+				;    }
+				;    else
+ 09B7				multibnk:
+				;    {
+				;        //
+				;        // the rectangle spans more than one page
+				;        // do as much as you can in each page
+				;        //
+				;        height = y2 - y1 + 1;
+ 09B7  8B 0E 033E R				mov		cx,yend
+ 09BB  2B 0E 033A R				sub		cx,ypos
+ 09BF  41					inc		cx
+ 09C0  B8 0000					mov		ax,0
+ 09C3  A3 09D2 R				mov		currRow,ax
+				;        while (height > 0)
+ 09C6				mltbklp:
+ 09C6  83 F9 00					cmp		cx,0
+ 09C9  7F 09					jg		mbkok
+ 09CB  E9 0115					jmp		rectdone
+ 09CE 00000000			startoff	dd		?
+ 09D2 0000			currRow		dw	?
+ 09D4				mbkok:
+				;        {
+				;            uint32 start;
+				;
+				;            //
+				;            // how many scan lines of the rectangle
+				;            // fit on this page?
+				;            // 
+				;            lines = (0x10000L - offset) / modeInfo.width;
+							.386
+ 09D4  66| B8 00010000					 mov		eax,10000h
+ 09DA  66| 8B 0E 034C R					 mov		ecx,strtoff
+ 09DF  66| 2B C1			   		 sub		eax,ecx
+							.286
+ 09E2  BA 0000						 mov		dx,0				 
+ 09E5  8B 8F 0330					 mov		cx,[bx].vwidth
+ 09E9  F7 F1						 div		cx
+							 ;    ax = lines
+				;            lines = min(lines, height);
+ 09EB  3B 06 0346 R					 cmp		ax,rctheight
+ 09EF  7C 03						 jl			mbbk2
+ 09F1  A1 0346 R					 mov		ax,rctheight
+ 09F4				mbbk2:
+				;            height -= lines;
+ 09F4  83 F8 00						cmp		ax,0
+ 09F7  76 33						jbe		spanline
+ 09F9  8B C8						 mov		cx,ax
+ 09FB  A1 0346 R					 mov		ax,rctheight
+ 09FE  2B C1						 sub		ax,cx
+ 0A00  A3 0346 R					 mov		rctheight,ax
+								; cx has lines
+				;            for (i = 0; i < lines; i++)
+ 0A03  06							push		es
+ 0A04  B8 A000							mov			ax,0a000h
+ 0A07  8E C0							mov			es,ax
+ 0A09				mbfllp1:
+ 0A09  51							push		cx
+ 0A0A  8B 3E 034C R						mov			di,word ptr strtoff
+ 0A0E  8B 0E 0344 R						mov			cx,rctwidth
+ 0A12  BA 0000							mov			dx,0
+ 0A15  A1 09D2 R						mov			ax,currRow
+ 0A18  FF 16 0358 R						call		rectFunc
+ 0A1C  59							pop			cx
+				;                offset += modeInfo.width;
+ 0A1D  03 BF 0330						add			di,[bx].vwidth
+ 0A21  89 3E 034C R						mov			word ptr strtoff,di
+ 0A25  FF 06 09D2 R						inc			currRow
+ 0A29  E2 DE							loop		mbfllp1
+ 0A2B  07							pop			es
+				;            }
+				;            //
+				;            // handle the case where a scan line crosses
+				;            // a page boundry
+				;            //
+ 0A2C				spanline:
+ 0A2C  A1 0346 R						mov		ax,rctheight
+ 0A2F  83 F8 00							cmp		ax,0
+ 0A32  73 03 E9 0097						jb		span1
+
+ 0A37  48							dec		ax
+ 0A38  A3 0346 R						mov		rctheight,ax
+				;                start = 0x10000L - offset;
+							 .386
+ 0A3B  66| B8 00010000					 	mov		eax,10000h
+ 0A41  66| 8B 0E 034C R					 	mov		ecx,strtoff
+ 0A46  66| 2B C1						sub		eax,ecx
+ 0A49  66| A3 09CE R						mov		startoff,eax
+							  .286
+				;                if (start >= width)
+ 0A4D  3B 06 0344 R						cmp		ax,rctwidth
+ 0A51  72 30							jb		othbk
+				;                {
+				;                    memset((uint8 *) MK_FP(0xa000, (uint16) offset),
+				;                          color,
+				;                           width);
+							  
+ 0A53  51							push		cx
+ 0A54  06							push		es
+ 0A55  BA A000							mov			dx,0a000h
+ 0A58  8E C2							mov			es,dx
+ 0A5A  BA 0000							mov			dx,0
+ 0A5D  A1 09D2 R						mov			ax,currRow
+ 0A60  8B 3E 034C R						mov			di,word ptr strtoff
+ 0A64  8B 0E 0344 R						mov			cx,rctwidth
+ 0A68  FF 16 0358 R						call		rectFunc
+ 0A6C  07							pop			es
+ 0A6D  59							pop			cx
+							  
+				;                    currentBank++;
+				;                    vbeSetBankAAddr(currentBank);
+ 0A6E  8B 97 0320						mov		dx,[bx].currentBank
+ 0A72  42							inc		dx
+ 0A73  53							push	bx
+ 0A74  89 97 0320						mov		[bx].currentBank,dx
+ 0A78  8B C2							mov		ax,dx
+ 0A7A  BB 0000							mov		bx,0				     
+ 0A7D  E8 0000 E						call	vbeSetBankAddr
+ 0A80  5B							pop		bx
+ 0A81  EB 4B							jmp		span1
+
+				;                }
+ 0A83				othbk:
+				;                else
+				;                {
+				;                    memset((uint8 *) MK_FP(0xa000, (uint16) offset),
+				;                           color,
+				;                           start);
+				;    
+
+								
+ 0A83  51							push		cx
+ 0A84  06							push		es
+ 0A85  BA A000							mov			dx,0a000h
+ 0A88  8E C2							mov			es,dx
+ 0A8A  BA 0000							mov			dx,0
+ 0A8D  A1 09D2 R						mov			ax,currRow
+ 0A90  8B 3E 034C R						mov			di,word ptr strtoff
+ 0A94  8B 0E 09CE R						mov			cx,word ptr startoff
+ 0A98  FF 16 0358 R						call		rectFunc
+
+ 0A9C  07							pop			es
+ 0A9D  59							pop			cx
+							  
+				;                    currentBank++;
+				;                    vbeSetBankAAddr(currentBank);
+ 0A9E  8B 97 0320						mov		dx,[bx].currentBank
+ 0AA2  42							inc		dx
+ 0AA3  53							push	bx
+ 0AA4  89 97 0320						mov		[bx].currentBank,dx
+ 0AA8  8B C2							mov		ax,dx
+ 0AAA  BB 0000							mov		bx,0				     
+ 0AAD  E8 0000 E						call	vbeSetBankAddr
+ 0AB0  5B							pop		bx
+				;
+				;                    memset((uint8 *) MK_FP(0xa000, (uint16) 0),
+				;                           color,
+				;                           width - start);
+ 0AB1  51							push		cx
+ 0AB2  06							push		es
+ 0AB3  BA A000							mov			dx,0a000h
+ 0AB6  8E C2							mov			es,dx
+ 0AB8  BF 0000							mov			di,0
+ 0ABB  8B 0E 0344 R						mov			cx,rctwidth
+ 0ABF  8B 16 09CE R						mov			dx,word ptr startoff
+ 0AC3  2B CA							sub			cx,dx
+ 0AC5  A1 09D2 R						mov			ax,currRow
+ 0AC8  FF 16 0358 R						call		rectFunc
+								
+ 0ACC  07							pop			es
+ 0ACD  59							pop			cx
+								
+
+				;                }
+				;            }
+ 0ACE				span1:
+ 0ACE  8B 0E 0346 R					 mov		cx,rctheight
+				;            offset += modeInfo.width;
+				;            offset &= 0xffffL;
+ 0AD2  A1 034C R					 mov		ax,word ptr strtoff
+ 0AD5  03 87 0330					 add		ax,[bx].vwidth
+ 0AD9  A3 034C R					 mov		word ptr strtoff,ax
+ 0ADC  FF 06 09D2 R					 inc		currRow
+ 0AE0  E9 FEE3						 jmp	   mltbklp
+				;        }
+				;    }
+ 0AE3				rectdone:
+
+ 0AE3  07					pop		es
+ 0AE4  5F					pop		di
+ 0AE5  5E					pop		si
+ 0AE6  5A					pop		dx
+ 0AE7  59					pop		cx
+ 0AE8  5B					pop		bx
+ 0AE9  58					pop		ax
+ 0AEA  C3					ret
+
+				 
+
+				;*****************************************************************************
+				;   getNumPages - 
+				;       inputs: BX -> VDCONTX struct
+				;		output: number of pages - 
+				;*****************************************************************************
+ 0AEB				getNumPages:
+ 0AEB  53				push	bx
+					assume bx:ptr VDCONTX
+					
+ 0AEC  8D 9F 021C			lea		bx,[bx].vmi
+					assume bx:ptr MODEINFO
+ 0AF0  B4 00				mov		ah,0
+ 0AF2  8A 47 1D				mov		al,[bx].numberofimagepages
+ 0AF5  40				inc		ax
+ 0AF6  5B				pop		bx
+ 0AF7  C3				ret
+
+ 0AF8				_Text ENDS
+					END	
+Microsoft (R) Macro Assembler Version 6.11		    06/17/05 15:51:28
+vcontex.asm						     Symbols 2 - 1
+
+
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+GWIND  . . . . . . . . . . . . .	 0014
+  xorg . . . . . . . . . . . . .	 0000	     Word
+  yorg . . . . . . . . . . . . .	 0002	     Word
+  xend . . . . . . . . . . . . .	 0004	     Word
+  yend . . . . . . . . . . . . .	 0006	     Word
+  xsiz . . . . . . . . . . . . .	 0008	     Word
+  ysiz . . . . . . . . . . . . .	 000A	     Word
+  bcolor . . . . . . . . . . . .	 000C	     Word
+  ccolor . . . . . . . . . . . .	 000E	     Word
+  currx  . . . . . . . . . . . .	 0010	     Word
+  curry  . . . . . . . . . . . .	 0012	     Word
+MODEINFO . . . . . . . . . . . .	 0100
+  modeattributes . . . . . . . .	 0000	     Word
+  winaattributes . . . . . . . .	 0002	     Byte
+  winbattributes . . . . . . . .	 0003	     Byte
+  wingranularity . . . . . . . .	 0004	     Word
+  winsize  . . . . . . . . . . .	 0006	     Word
+  winasegment  . . . . . . . . .	 0008	     Word
+  winbsegment  . . . . . . . . .	 000A	     Word
+  winfuncptr . . . . . . . . . .	 000C	     DWord
+  bytesperscanline . . . . . . .	 0010	     Word
+  xresolution  . . . . . . . . .	 0012	     Word
+  yresolution  . . . . . . . . .	 0014	     Word
+  xcharsize  . . . . . . . . . .	 0016	     Byte
+  ycharsize  . . . . . . . . . .	 0017	     Byte
+  numberofplanes . . . . . . . .	 0018	     Byte
+  bitsperpixel . . . . . . . . .	 0019	     Byte
+  numberofbanks  . . . . . . . .	 001A	     Byte
+  memorymodel  . . . . . . . . .	 001B	     Byte
+  banksize . . . . . . . . . . .	 001C	     Byte
+  numberofimagepages . . . . . .	 001D	     Byte
+  reserved1  . . . . . . . . . .	 001E	     Byte
+  redmasksize  . . . . . . . . .	 001F	     Byte
+  redfieldposition . . . . . . .	 0020	     Byte
+  greenmasksize  . . . . . . . .	 0021	     Byte
+  greenfieldposition . . . . . .	 0022	     Byte
+  bluemasksize . . . . . . . . .	 0023	     Byte
+  bluefieldposition  . . . . . .	 0024	     Byte
+  rsvdmasksize . . . . . . . . .	 0025	     Byte
+  rsvdfieldposition  . . . . . .	 0026	     Byte
+  directcolormodeinfo  . . . . .	 0027	     Byte
+  physbaseptr  . . . . . . . . .	 0028	     DWord
+  offscreenmemoffset . . . . . .	 002C	     DWord
+  offscreenmemsize . . . . . . .	 0030	     Word
+  reserved2  . . . . . . . . . .	 0032	     Byte
+VBEINFO  . . . . . . . . . . . .	 0200
+  vbesignature . . . . . . . . .	 0000	     Byte
+  vbeversion . . . . . . . . . .	 0004	     Word
+  oemstringptr . . . . . . . . .	 0006	     DWord
+  capabilities . . . . . . . . .	 000A	     Byte
+  videomodeptr . . . . . . . . .	 000E	     DWord
+  totalmemory  . . . . . . . . .	 0012	     Word
+  oemsoftwarerev . . . . . . . .	 0014	     Word
+  oemvendornameptr . . . . . . .	 0016	     DWord
+  oemproductnameptr  . . . . . .	 001A	     DWord
+  oemproductrevptr . . . . . . .	 001E	     DWord
+  reserved . . . . . . . . . . .	 0022	     Byte
+  oemdata  . . . . . . . . . . .	 0100	     Byte
+VDCONTX  . . . . . . . . . . . .	 0338
+  Create . . . . . . . . . . . .	 0000	     Word
+  Destroy  . . . . . . . . . . .	 0002	     Word
+  Clear  . . . . . . . . . . . .	 0004	     Word
+  getNumPages  . . . . . . . . .	 0006	     Word
+  setActivePage  . . . . . . . .	 0008	     Word
+  setVisiblePage . . . . . . . .	 000A	     Word
+  pixel  . . . . . . . . . . . .	 000C	     Word
+  fillRect . . . . . . . . . . .	 000E	     Word
+  drawRect . . . . . . . . . . .	 0010	     Word
+  drawChar . . . . . . . . . . .	 0012	     Word
+  drawLine . . . . . . . . . . .	 0014	     Word
+  drawString . . . . . . . . . .	 0016	     Word
+  createWindow . . . . . . . . .	 0018	     Word
+  createbutton . . . . . . . . .	 001A	     Word
+  vbi  . . . . . . . . . . . . .	 001C	      0200
+  vmi  . . . . . . . . . . . . .	 021C	      0100
+  origMode . . . . . . . . . . .	 031C	     Word
+  currentMode  . . . . . . . . .	 031E	     Word
+  currentBank  . . . . . . . . .	 0320	     Word
+  banksPerPage . . . . . . . . .	 0322	     Word
+  activePage . . . . . . . . . .	 0324	     Word
+  activePageOffset . . . . . . .	 0326	     Word
+  visiblePage  . . . . . . . . .	 0328	     Word
+  error  . . . . . . . . . . . .	 032A	     Word
+  maxx . . . . . . . . . . . . .	 032C	     Word
+  maxy . . . . . . . . . . . . .	 032E	     Word
+  vwidth . . . . . . . . . . . .	 0330	     Word
+  vheight  . . . . . . . . . . .	 0332	     Word
+  fontSeg  . . . . . . . . . . .	 0334	     Word
+  fontOff  . . . . . . . . . . .	 0336	     Word
+VGACOLOR . . . . . . . . . . . .	 0006
+  red  . . . . . . . . . . . . .	 0000	     Word
+  green  . . . . . . . . . . . .	 0002	     Word
+  blue . . . . . . . . . . . . .	 0004	     Word
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+_Text  . . . . . . . . . . . . .	16 Bit	 0AF8	  Para	  Public  
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+VCClear  . . . . . . . . . . . .	L Near	 0486	  _Text	Public
+VCCreate . . . . . . . . . . . .	L Near	 0360	  _Text	Public
+VCDestroy  . . . . . . . . . . .	L Near	 0478	  _Text	
+activeWindow . . . . . . . . . .	L Near	 0000	  External
+badpage  . . . . . . . . . . . .	L Near	 04F3	  _Text	
+bclr . . . . . . . . . . . . . .	Byte	 07BB	  _Text	
+bottomlp . . . . . . . . . . . .	L Near	 075A	  _Text	
+cblp1  . . . . . . . . . . . . .	L Near	 06A7	  _Text	
+cblp2  . . . . . . . . . . . . .	L Near	 06C3	  _Text	
+cblp3  . . . . . . . . . . . . .	L Near	 06E8	  _Text	
+cblp4  . . . . . . . . . . . . .	L Near	 0708	  _Text	
+cchar  . . . . . . . . . . . . .	Byte	 07BA	  _Text	
+cfontoff . . . . . . . . . . . .	Word	 07BE	  _Text	
+cfontseg . . . . . . . . . . . .	Word	 07BC	  _Text	
+chardone . . . . . . . . . . . .	L Near	 07B2	  _Text	
+charloop . . . . . . . . . . . .	L Near	 07A8	  _Text	
+charr  . . . . . . . . . . . . .	L Near	 0858	  _Text	
+charx  . . . . . . . . . . . . .	Word	 035C	  _Text	
+chary  . . . . . . . . . . . . .	Word	 035E	  _Text	
+chdone . . . . . . . . . . . . .	L Near	 084D	  _Text	
+chrloop  . . . . . . . . . . . .	L Near	 086F	  _Text	
+colmoffset . . . . . . . . . . .	Word	 0348	  _Text	
+createWindow . . . . . . . . . .	L Near	 05C1	  _Text	
+createbutton . . . . . . . . . .	L Near	 066C	  _Text	
+crtdone  . . . . . . . . . . . .	L Near	 0474	  _Text	
+currRow  . . . . . . . . . . . .	Word	 09D2	  _Text	
+cwlp1  . . . . . . . . . . . . .	L Near	 05FC	  _Text	
+cwlp2  . . . . . . . . . . . . .	L Near	 0618	  _Text	
+cwlp3  . . . . . . . . . . . . .	L Near	 063D	  _Text	
+cwlp4  . . . . . . . . . . . . .	L Near	 065D	  _Text	
+dc1  . . . . . . . . . . . . . .	L Near	 07E4	  _Text	
+dc2  . . . . . . . . . . . . . .	L Near	 07F8	  _Text	
+dc3  . . . . . . . . . . . . . .	L Near	 0805	  _Text	
+dcCklf . . . . . . . . . . . . .	L Near	 07EF	  _Text	
+dl_ckHorz  . . . . . . . . . . .	L Near	 05B2	  _Text	
+dl_done  . . . . . . . . . . . .	L Near	 05BE	  _Text	
+dl_not_single  . . . . . . . . .	L Near	 05A4	  _Text	
+drawChar . . . . . . . . . . . .	L Near	 07C0	  _Text	Public
+drawLine . . . . . . . . . . . .	L Near	 0595	  _Text	
+drawRect . . . . . . . . . . . .	L Near	 0717	  _Text	Public
+drawString . . . . . . . . . . .	L Near	 0792	  _Text	
+endbnk . . . . . . . . . . . . .	Word	 0356	  _Text	
+endoff . . . . . . . . . . . . .	DWord	 0352	  _Text	
+fillRect . . . . . . . . . . . .	L Near	 0774	  _Text	Public
+fillr  . . . . . . . . . . . . .	L Near	 0780	  _Text	
+fntwidth . . . . . . . . . . . .	Word	 035A	  _Text	
+fonst  . . . . . . . . . . . . .	L Near	 0822	  _Text	
+fr1  . . . . . . . . . . . . . .	L Near	 08CC	  _Text	
+fr2  . . . . . . . . . . . . . .	L Near	 08DC	  _Text	
+fr3  . . . . . . . . . . . . . .	L Near	 08F0	  _Text	
+fr4  . . . . . . . . . . . . . .	L Near	 0900	  _Text	
+getNumPages  . . . . . . . . . .	L Near	 0AEB	  _Text	
+getfnt . . . . . . . . . . . . .	L Near	 0405	  _Text	Public
+havrect  . . . . . . . . . . . .	L Near	 0915	  _Text	
+horzlp . . . . . . . . . . . . .	L Near	 05B6	  _Text	
+leftlp . . . . . . . . . . . . .	L Near	 0766	  _Text	
+mbbk2  . . . . . . . . . . . . .	L Near	 09F4	  _Text	
+mbfllp1  . . . . . . . . . . . .	L Near	 0A09	  _Text	
+mbkok  . . . . . . . . . . . . .	L Near	 09D4	  _Text	
+memset . . . . . . . . . . . . .	L Near	 0000	  External
+mltbklp  . . . . . . . . . . . .	L Near	 09C6	  _Text	
+multibnk . . . . . . . . . . . .	L Near	 09B7	  _Text	
+noevid . . . . . . . . . . . . .	L Near	 0472	  _Text	
+norect . . . . . . . . . . . . .	L Near	 0912	  _Text	
+othbk  . . . . . . . . . . . . .	L Near	 0A83	  _Text	
+pixbad . . . . . . . . . . . . .	L Near	 0590	  _Text	
+pixbnkok . . . . . . . . . . . .	L Near	 058D	  _Text	
+pixel  . . . . . . . . . . . . .	L Near	 0547	  _Text	Public
+pixnc  . . . . . . . . . . . . .	L Near	 056E	  _Text	
+processRect  . . . . . . . . . .	L Near	 0888	  _Text	
+rctbnkok . . . . . . . . . . . .	L Near	 097D	  _Text	
+rctcolor . . . . . . . . . . . .	Word	 0342	  _Text	
+rctheight  . . . . . . . . . . .	Word	 0346	  _Text	
+rctlines . . . . . . . . . . . .	Word	 0340	  _Text	
+rctwidth . . . . . . . . . . . .	Word	 0344	  _Text	
+rectFunc . . . . . . . . . . . .	Word	 0358	  _Text	
+rectdone . . . . . . . . . . . .	L Near	 0AE3	  _Text	
+rightlp  . . . . . . . . . . . .	L Near	 074F	  _Text	
+rowoffset  . . . . . . . . . . .	Word	 034A	  _Text	
+rrct2  . . . . . . . . . . . . .	L Near	 0934	  _Text	
+rrct3  . . . . . . . . . . . . .	L Near	 0956	  _Text	
+sapout . . . . . . . . . . . . .	L Near	 04F6	  _Text	
+sbfl1  . . . . . . . . . . . . .	L Near	 09B3	  _Text	
+setActivePage  . . . . . . . . .	L Near	 04D0	  _Text	
+setVisiblePage . . . . . . . . .	L Near	 04FE	  _Text	
+span1  . . . . . . . . . . . . .	L Near	 0ACE	  _Text	
+spanline . . . . . . . . . . . .	L Near	 0A2C	  _Text	
+srctlp . . . . . . . . . . . . .	L Near	 0997	  _Text	
+startoff . . . . . . . . . . . .	DWord	 09CE	  _Text	
+stbk . . . . . . . . . . . . . .	L Near	 087B	  _Text	
+strtbnk  . . . . . . . . . . . .	Word	 0350	  _Text	
+strtoff  . . . . . . . . . . . .	DWord	 034C	  _Text	
+svpbadpage . . . . . . . . . . .	L Near	 053E	  _Text	
+svpdone  . . . . . . . . . . . .	L Near	 0542	  _Text	
+svpline  . . . . . . . . . . . .	Word	 04FA	  _Text	
+svppixel . . . . . . . . . . . .	Word	 04FC	  _Text	
+toplp  . . . . . . . . . . . . .	L Near	 0744	  _Text	
+vbeGetInfo . . . . . . . . . . .	L Near	 0000	  External
+vbeGetModeInfo . . . . . . . . .	L Near	 0000	  External
+vbeGetMode . . . . . . . . . . .	L Near	 0000	  External
+vbeSetBankAddr . . . . . . . . .	L Near	 0000	  External
+vbeSetDisplayStart . . . . . . .	L Near	 0000	  External
+vbeSetMode . . . . . . . . . . .	L Near	 0000	  External
+vcclp  . . . . . . . . . . . . .	L Near	 0490	  _Text	
+vchar  . . . . . . . . . . . . .	Byte	 07B9	  _Text	
+vc . . . . . . . . . . . . . . .	VDCONTX	 0000	  _Text	
+vertlp . . . . . . . . . . . . .	L Near	 05A8	  _Text	
+vgaSetPalette  . . . . . . . . .	L Near	 0000	  External
+waitBlankEnd . . . . . . . . . .	L Near	 0000	  External
+waitRetrace  . . . . . . . . . .	L Near	 0000	  External
+xend . . . . . . . . . . . . . .	Word	 033C	  _Text	
+xpos . . . . . . . . . . . . . .	Word	 0338	  _Text	
+yend . . . . . . . . . . . . . .	Word	 033E	  _Text	
+ypos . . . . . . . . . . . . . .	Word	 033A	  _Text	
+
+	   0 Warnings
+	   0 Errors

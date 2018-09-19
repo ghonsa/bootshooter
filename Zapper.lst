@@ -1,0 +1,952 @@
+Microsoft (R) Macro Assembler Version 6.11		    06/17/05 15:51:28
+Zapper.asm						     Page 1 - 1
+
+
+				;*****************************************************************************
+				;  Zapper - ; 
+				;  Copyright, 2005 Greg Honsa
+				;*****************************************************************************
+				 include pte.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C 
+ = 0001			      C BOOTABLE equ 1			; set to make a bootable image
+			      C OPSIZ macro
+			      C 	db 66h
+			      C endm
+			      C 
+			      C ;
+			      C ;** fat type byte defs
+			      C ;
+ = 0001			      C FAT12 	equ 01h 	;FAT12 primary parttion (fewer than 32,680 sectors in the volume) 
+ = 0002			      C XENIXR	equ 02h		;Xenix root
+ = 0003			      C XENIXU  equ 03h		;Xenix usr
+ = 0004			      C FAT16 	equ 04h 	;FAT16 partition or logical drive ( 16 MB) 
+ = 0005			      C EXTEND  equ 05h 	;Extended partition 
+ = 0006			      C BGFAT16	equ 06h		;BIGDOS FAT16 partition or logical drive (33 mb)  
+ = 0007			      C NTFS	equ 07h		;Installable File System (NTFS partition or logical drive) 
+ = 0008			      C AIXBOOT equ 08h		;AIX boot partition
+ = 0009			      C AIXDATA equ 09h		;AIX data
+ = 000A			      C OS2BOOT equ	0Ah		;OS/2 boot partition
+ = 000B			      C FAT32	equ 0Bh		;FAT32 partition or logical drive 
+ = 000C			      C BFAT32	equ 0Ch		;FAT32 partition or logical drive using BIOS INT 13h extensions 
+ = 000E			      C BFAT16	equ 0Eh 	;BIGDOS FAT16 partition or logical drive using BIOS INT 13h extensions 
+ = 000F			      C BEXTEND equ 0Fh		; Extended partition using BIOS INT 13h extensions 
+ = 0012			      C EISA	equ 12h 	;EISA partition or OEM partition 
+ = 0042			      C DYNVOL	equ 42h 	;Dynamic volume 
+ = 0082			      C LINUXSW equ 82h		;Linux swap partition
+ = 0083			      C LINUXRT equ 83h		;Linux native partition
+ = 0084			      C POWMAN  equ 84h 	;Power management hibernation partition 
+ = 0086			      C MDFAT16	equ 86h 	;Multidisk FAT16 volume created by using Windows NT 4.0 
+ = 0087			      C MDNTFS  equ 87h 	;Multidisk NTFS volume created by using Windows NT 4.0 
+ = 00A0			      C HIB		equ 0A0h 	;Laptop hibernation partition 
+ = 00DE			      C DELL	equ 0DEh 	;Dell OEM partition 
+ = 00FE			      C IBM		equ 0FEh 	;IBM OEM partition 
+ = 00EE			      C GPT		equ 0EEh 	;GPT partition  
+ = 00EF			      C EFI		equ 0EFh 	;EFI System partition on an MBR disk 
+			      C 
+ = 0080			      C PTE_BOOTABLE EQU 80h
+ = 00AA			      C PTE_EXTENDED EQU 0AAh
+			      C CYLSEC record Cylinder:10,Sector:6
+			      C 
+ 0010			      C PARTITION_TABLE_ENTRY struc
+ 0000  00		      C 	bte_bootable		db	?
+ 0001  00		      C 	bte_starthead		db	?
+ 0002  0000		      C 	bte_startsector		dw	?	     
+ 0004  00		      C 	bte_system			db	?
+ 0005  00		      C 	bte_endhead			db	?
+ 0006  0000		      C 	bte_endsector		dw	?
+ 0008  00000000		      C 	bte_relativesector	dd	?
+ 000C  00000000		      C 	bte_totalsector		dd	?
+			      C PARTITION_TABLE_ENTRY ends
+			      C 
+ 001A			      C EXT_PARTITION struc
+ 0000  00 00 0000 00 00	      C   	EPpte		PARTITION_TABLE_ENTRY <>
+       0000 00000000
+       00000000
+ 0010  00000000		      C 	EPStartLBA			dd ?
+ 0014  00000000		      C 	EPEndLBA			dd ?
+ 0018  00		      C 	EPbootable			db ?
+ 0019  00		      C 	EPDrive				db ?
+			      C EXT_PARTITION ends
+			      C 
+ 0083			      C PARTITION_INFO struc
+ 0000  00 00 0000 00 00	      C   	PIpte		PARTITION_TABLE_ENTRY <>
+       0000 00000000
+       00000000
+ 0010  00000000		      C 	PIStartLBA			dd ?
+ 0014  00000000		      C 	PIEndLBA			dd ?
+ 0018  00		      C 	PIbootable			db ?
+ 0019  00		      C 	PIDrive				db ?
+ 001A  00		      C 	PIExtended			db ?
+ 001B  0004 [		      C    	PIEParts			EXT_PARTITION 4 DUP(<>)
+        00 00 0000 00 00
+        0000 00000000
+        00000000 00000000
+        00000000 00 00
+       ]
+			      C PARTITION_INFO	ends
+			      C ;
+			      C ;--- drive info
+			      C ;
+ = 0055			      C DIEXTENDED		equ	055h
+ 0223			      C DriveInfo	STRUC
+ 0000  00		      C 	DIid			db	?
+ 0001  00		      C 	DIHeads			db	?		
+ 0002  00		      C 	DIExtend		db	?
+ 0003  00		      C 	DISectors		db	?
+ 0004  00		      C 					db	?
+ 0005  0000		      C 	DICylinders		dw  ?
+ 0007  00000000		      C 	DIFreeSect		dd	?
+ 000B  00000000		      C 	DITotSect		dd	?
+ 000F  00000000		      C    	DIExtSize1		dd  ?
+ 0013  00000000		      C    	DIExtSize		dd  ?
+ 0017  0004 [		      C    	DIPartTab1		PARTITION_INFO 4 DUP (<>)
+        00 00 0000 00 00
+        0000 00000000
+        00000000 00000000
+        00000000 00 00 00
+        0004 [
+	 00 00 0000 00 00
+	 0000 00000000
+	 00000000
+	 00000000
+	 00000000 00 00
+	]
+			      C 
+			      C DriveInfo	ENDS
+			      C ;
+			      C ; --- BIOS disk parameter table ---
+			      C ;
+ 0010			      C BiosDrvTab	STRUC
+ 0000  0000		      C 	BDTCylinders	dw	?
+ 0002  00		      C 	BDTHeads		db	?
+ 0003  0000		      C 					dw	?
+ 0005  0000		      C 	BDTPrecomp		dw	?
+ 0007  00		      C 	BDTECC			db	?
+ 0008  00		      C 	BDTCtrl			db	?
+ 0009  00		      C 					db	?
+ 000A  0000		      C 					dw	?
+ 000C  0000		      C 	BDTLanding		dw	?
+ 000E  00		      C 	BDTSectors		db	?
+ 000F  00		      C 					db	?		
+			      C BiosDrvTab ENDS
+			      C ;
+			      C ; --- BIOS extended disk parameter table
+			      C ;
+ 001E			      C ExtBiosDrvTab STRUC
+ 0000  0000		      C 	EBDTBuffSz		dw	?
+ 0002  0000		      C 	EBDTInfo		dw	?
+ 0004  00000000		      C 	EBDTCylinders	dd	?
+ 0008  00000000		      C 	EBDTHeads		dd	?
+ 000C  00000000		      C 	EBDTSectors		dd	?
+ 0010  00000000		      C 	EBDTTotSect 	dd	?
+ 0014  00000000		      C 	EBDTTotSect1	dd	?
+ 0018  0000		      C 	EBDTSectTrk		dw	?
+ 001A  00000000		      C 	EBDTEDD			dd	?				   	
+			      C ExtBiosDrvTab ENDS
+			      C ;
+			      C ;  --- entended disk address packet
+			      C ;
+ 0018			      C ExtBiosDiskAddrPkt STRUC
+ 0000  00		      C 	EBDAPSz			db	?
+ 0001  00		      C 	EBDAPres1		db	?
+ 0002  00		      C 	EBDAPBlocks		db	?
+ 0003  00		      C 	EBDAPres2		db	?
+ 0004  0000		      C 	EBDAPLowPtr		dw	?
+ 0006  0000		      C 	EBDAPHighPtr	dw	?
+ 0008  00000000		      C 	EBDAPLBAlow		dd	?
+ 000C  00000000		      C 	EBDAPLBAhigh	dd	?
+ 0010  00000000		      C 	EBDAPFlatAdr1	dd	?
+ 0014  00000000		      C 	EBDAPFlatAdr2	dd	?
+			      C ExtBiosDiskAddrPkt ENDS
+			      C 	
+			      C ;
+			      C ; --- vesa info
+			      C ;
+ 0200			      C VgaInfoBlock    STRUC
+ 0000   0001 [		      C       VESASignature   db   'VESA'      ; 4 signature bytes 
+	 56 45 53 41
+	]
+ 0004  0000		      C       VESAVersion     dw   ?           ; VESA version number
+ 0006  00000000		      C       OEMStringPtr    dd   ?           ; Pointer to OEM string
+ 000A   0004 [		      C       Capabilities    db   4 dup(?)    ; capabilities of the video environment
+	 00
+	]
+ 000E  00000000		      C       VideoModePtr    dd   ?           ; pointer to supported Super VGA modes
+ 0012  0000		      C       TotalMemory     dw   ?           ; Number of 64kb memory blocks on board
+ 0014   00EC [		      C       Reserved        db   236 dup(?)  ; Remainder of VgaInfoBlock
+	 00
+	]
+ 0100   0100 [		      C 	  OemData		  db   256 dup(?)  ;
+	 00
+	]
+			      C VgaInfoBlock    ENDS
+			      C 
+				 include DispUtl.inc
+			      C  include vcontex.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C  include video.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C 
+			      C 
+ 0200			      C VBEINFO struc
+ 0000   0001 [		      C    vbesignature 	db "VESA"		; // VBE Signature
+	 56 45 53 41
+	]
+ 0004  0000		      C    vbeversion		dw	?        	; // VBE Version
+ 0006  00000000		      C    oemstringptr 	dd	?			; // Pointer to OEM String
+ 000A   0004 [		      C    capabilities  	db 4 dup (?)   	; // Capabilities of graphics cont.
+	 00
+	]
+ 000E  00000000		      C    videomodeptr 	dd	? 			; // Pointer to Video Mode List
+ 0012  0000		      C    totalmemory		dw	?			; // number of 64Kb memory blocks
+ 0014  0000		      C    oemsoftwarerev	dw	?			; // VBE implementation Software revision
+ 0016  00000000		      C    oemvendornameptr	dd	?			; // Pointer to Vendor Name String
+ 001A  00000000		      C    oemproductnameptr dd	?			; // Pointer to Product Name String
+ 001E  00000000		      C    oemproductrevptr	dd	?			; // Pointer to Product Revision String
+ 0022   00DE [		      C    reserved 		db 222 dup (?)			; // Reserved for VBE implementation scratch area
+	 00
+	]
+ 0100   0100 [		      C    oemdata			db 256 dup (?)	; // Data Area for OEM Strings
+	 00
+	]
+			      C VBEINFO	ends
+			      C 
+ 0100			      C MODEINFO struc
+			      C 
+			      C    ;// Mandatory information for all VBE revision
+			      C 
+ 0000  0000		      C    modeattributes	dw	?			; // Mode attributes
+ 0002  00		      C    winaattributes	db	?			; // Window A attributes
+ 0003  00		      C    winbattributes	db	?			; // Window B attributes
+ 0004  0000		      C    wingranularity	dw	?			; // Window granularity
+ 0006  0000		      C    winsize			dw	?			; // Window size
+ 0008  0000		      C    winasegment		dw	?			; // Window A start segment
+ 000A  0000		      C    winbsegment		dw	?			; // Window B start segment
+ 000C  00000000		      C    winfuncptr		dd	?			; // pointer to window function
+ 0010  0000		      C    bytesperscanline	dw	?			; // Bytes per scan line
+			      C 
+			      C    ;// Mandatory information for VBE 1.2 and above
+			      C 
+ 0012  0000		      C    xresolution		dw	?			; // Horizontal resolution in pixel or chars
+ 0014  0000		      C    yresolution		dw	?			; // Vertical resolution in pixel or chars
+ 0016  00		      C    xcharsize		db	?			; // Character cell width in pixel
+ 0017  00		      C    ycharsize		db	?			; // Character cell height in pixel
+ 0018  00		      C    numberofplanes	db	?			; // Number of memory planes
+ 0019  00		      C    bitsperpixel		db	?			; // Bits per pixel
+ 001A  00		      C    numberofbanks	db	?			; // Number of banks
+ 001B  00		      C    memorymodel		db	?			; // Memory model type
+ 001C  00		      C    banksize			db	?			; // Bank size in KB
+ 001D  00		      C    numberofimagepages db ?			; // Number of images
+ 001E  00		      C    reserved1		db	?			; // Reserved for page function
+			      C 
+			      C    ;// Direct Color fields (required for direct/6 and YUV/7 memory models)
+			      C 
+ 001F  00		      C    redmasksize		db	?			; // Size of direct color red mask in bits
+ 0020  00		      C    redfieldposition	db	?			; // Bit position of lsb of red bask
+ 0021  00		      C    greenmasksize	db	?			; // Size of direct color green mask in bits
+ 0022  00		      C    greenfieldposition db	?		; // Bit position of lsb of green bask
+ 0023  00		      C    bluemasksize		db	?			; // Size of direct color blue mask in bits
+ 0024  00		      C    bluefieldposition db ?			; // Bit position of lsb of blue bask
+ 0025  00		      C   rsvdmasksize		db	?			; // Size of direct color reserved mask in bits
+ 0026  00		      C    rsvdfieldposition db	?			; // Bit position of lsb of reserved bask   
+ 0027  00		      C    directcolormodeinfo db ?			; // Direct color mode attributes
+			      C 
+			      C    ;// Mandatory information for VBE 2.0 and above
+			      C 
+ 0028  00000000		      C    physbaseptr		dd	?			; // Physical address for flat frame buffer
+ 002C  00000000		      C    offscreenmemoffset dd ?			; // Pointer to start of off screen memory
+ 0030  0000		      C    offscreenmemsize dw ?			; // Amount of off screen memory in 1Kb units
+ 0032   00CE [		      C    reserved2 db 206 dup (?)			; // Remainder of ModeInfoBlock
+	 00
+	]
+			      C 
+			      C MODEINFO ends
+			      C 
+ 0006			      C VGACOLOR struc
+ 0000  0000		      C     red		dw	?
+ 0002  0000		      C     green	dw	?
+ 0004  0000		      C     blue	dw	?
+			      C VGACOLOR ends
+			      C 
+			      C 
+			      C 
+			      C 
+ 0338			      C VDCONTX	struc
+			      C 	;
+			      C 	;	--- function pointers --- 
+			      C 	;
+ 0000  0000		      C 	Create			dw	?	; Create function pointer
+ 0002  0000		      C 	Destroy			dw	?	; Destroy function
+ 0004  0000		      C 	Clear			dw	?	;
+ 0006  0000		      C 	getNumPages		dw	?	;
+ 0008  0000		      C     setActivePage	dw	?	;  
+ 000A  0000		      C     setVisiblePage	dw	?	;
+ 000C  0000		      C     pixel			dw	?	;	(int16 x, int16 y, int16 color);
+ 000E  0000		      C     fillRect		dw	?	;  (int16 x, int16 y, int16 width, int16 height, int16 color);
+ 0010  0000		      C 	drawRect		dw	?
+ 0012  0000		      C 	drawChar		dw	?	;	
+ 0014  0000		      C 	drawLine		dw	?	;
+ 0016  0000		      C 	drawString		dw	?	;
+ 0018  0000		      C 	createWindow	dw	?	;
+ 001A  0000		      C 	createbutton	dw	?	;
+			      C 
+ 001C   0001 [		      C 	vbi			VBEINFO <>
+	 56 45 53 41
+	] 0000 00000000
+        0004 [
+	 00
+	] 00000000 0000
+        0000 00000000
+        00000000 00000000
+        00DE [
+	 00
+	]
+        0100 [
+	 00
+	]
+ 021C  0000 00 00 0000	      C 	vmi 		MODEINFO <>
+        0000 0000 0000
+        00000000 0000
+        0000 0000 00 00
+        00 00 00 00 00 00
+        00 00 00 00 00 00
+        00 00 00 00
+        00000000 00000000
+        0000
+        00CE [
+	 00
+	]
+ 031C  0000		      C 	origMode		dw	?	;
+ 031E  0000		      C 	currentMode		dw	?	;
+ 0320  0000		      C 	currentBank		dw	?	;
+ 0322  0000		      C 	banksPerPage	dw	?	;
+ 0324  0000		      C 	activePage		dw	?	;
+ 0326  0000		      C 	activePageOffset dw ?	;
+ 0328  0000		      C 	visiblePage		dw	?	;
+ 032A  0000		      C 	error			dw	?	;
+ 032C  0000		      C 	maxx			dw	?	;
+ 032E  0000		      C 	maxy			dw	?	;
+ 0330  0000		      C 	vwidth			dw	?	;
+ 0332  0000		      C 	vheight			dw	?	;
+ 0334  0000		      C 	fontSeg			dw	?
+ 0336  0000		      C 	fontOff			dw	?
+			      C VDCONTX ends
+			      C 
+			      C 
+			      C 
+ 0014			      C GWIND	struc
+ 0000  0000		      C 	xorg	dw	?			; x start
+ 0002  0000		      C 	yorg	dw	?			; ystart
+ 0004  0000		      C 	xend	dw	?
+ 0006  0000		      C 	yend	dw	?
+ 0008  0000		      C 	xsiz	dw	?			; size x
+ 000A  0000		      C 	ysiz	dw	?			; size y
+ 000C  0000		      C 	bcolor	dw	?			; background window color
+ 000E  0000		      C 	ccolor	dw	?			; character color
+ 0010  0000		      C 	currx	dw	?			; current character position
+ 0012  0000		      C 	curry	dw	?
+			      C GWIND	ends
+			      C 
+			      C 
+			      C ;
+			      C ;
+			      C ;
+			      C extrn init_vid:near
+			      C extrn kill_vid:near
+			      C extrn printChar:near
+			      C extrn printHexNibble:near
+			      C extrn printHexByte:near
+			      C extrn printHexWord:near
+			      C extrn printHexDWord:near
+			      C extrn println:near
+			      C extrn print_size:near
+			      C extrn showZero:near
+			      C extrn GetChar:near
+			      C extrn GetLine:near
+			      C extrn GetNextParam:near
+			      C extrn ascii2hex:near
+			      C extrn displayBuffer:near
+			      C extrn gwDrives:near
+			      C extrn vidcontext:near
+			      C extrn activeWindow:near
+			      C extrn init_command:near
+			      C extrn init_sector:near
+			      C 
+														   
+				extrn ReadSectExt:near
+				extrn ReadSectStd:near
+				extrn WriteSectExt:near
+				extrn WriteSectStd:near
+				extrn dskbuffer1:near
+				extrn dinf:near
+ 0000				_Text SEGMENT PUBLIC USE16
+				  assume CS:_Text, DS:_Text
+
+				;******************************************************************************
+				;*    ZapDrive - cl has drve id 
+				;*	   Wipes all data on drive and fills drive with 0			 
+				;*	   using either int 13-3 for older bioses or 13-43 for enhanced BIOSes			 
+				;*
+				;******************************************************************************
+				public ZapDrive
+ 0000				ZapDrive:
+ 0000  57					push	di
+ 0001  51					push	cx
+ 0002  53					push	bx
+ 0003  50					push	ax
+
+ 0004  BF 0000 E				mov		di,offset dskbuffer1
+ 0007  B0 00					mov		al,0
+ 0009  51					push	cx
+ 000A  B9 0200					mov		cx,512
+ 000D  F3/ AA					rep stosb
+ 000F  59					pop		cx
+ 0010  B5 00					mov	ch,0
+				;		
+				;   --- get pointer to drive info ---
+				;
+ 0012  BB 0000 E				mov		bx,offset dinf
+ 0015  B8 0223					mov		ax,SIZEOF DriveInfo
+ 0018  F7 E1					mul		cx
+ 001A  03 D8					add		bx,ax
+						assume 	bx:ptr DriveInfo	
+				;
+				;   --- see if drive has extensions
+				;		 
+ 001C  80 7F 02 55				cmp		[bx].DIExtend,DIEXTENDED
+ 0020  74 4A					jz		zapDExtend
+				;
+				;   --- no extensions, use older bios writes
+				;
+ 0022  8B 4F 05					mov		cx,[bx].DICylinders		; for each cylinder						
+ 0025  C7 06 0193 R 0000			mov		zpCurCyl,0
+ 002B				zpcyllp:
+ 002B  51					push	cx
+ 002C  8A 4F 01					mov		cl,[bx].DIHeads			; for each head
+ 002F  B5 00					mov		ch,0
+ 0031  C6 06 0191 R 00				mov		zpCurHead,0
+ 0036				zphdlp:
+ 0036  51					push	cx
+ 0037  8A 4F 03					mov		cl,[bx].DISectors		; for each sector
+ 003A  B5 00					mov		ch,0
+ 003C  C6 06 0192 R 01				mov		zpCurSect,1
+ 0041				zpseclp:
+ 0041  53					push	bx
+ 0042  51					push	cx
+ 0043  8A 17					mov		dl,[bx].DIid			; get Drive id
+ 0045  8A 36 0191 R				mov		dh,zpCurHead
+ 0049  8B 1E 0193 R				mov		bx,zpCurCyl
+ 004D  8A 0E 0192 R				mov		cl,zpCurSect
+ 0051  E8 0000 E				call 	WriteSectStd
+ 0054  FE 06 0192 R				inc		zpCurSect		
+ 0058  59					pop		cx
+ 0059  5B					pop		bx
+ 005A  E2 E5					loop	zpseclp					; next Sector
+
+ 005C  FE 06 0191 R				inc		zpCurHead
+ 0060  59					pop		cx
+ 0061  E2 D3					loop	zphdlp					; next head
+
+ 0063  FF 06 0193 R				inc		zpCurCyl
+ 0067  59					pop		cx
+ 0068  E2 C1					loop	zpcyllp					; next Cylinder
+ 006A  EB 69					jmp		zapdrvdone
+
+
+
+ 006C				zapDExtend:
+						assume 	bx:ptr DriveInfo		;from above
+				.386		
+ 006C  66| C7 06 018D R				mov		zpCurLbaH,0
+        00000000
+ 0075  66| C7 06 0189 R				mov		zpCurLbal,0
+        00000000
+ 007E				zpextlp:		
+				.286
+ 007E  BF 0000 E				mov		di,offset dskbuffer1
+ 0081  8A 0F					mov		cl,[bx].DIid
+				.386
+ 0083  66| A1 0189 R				mov		eax,zpCurLbaL
+ 0087  66| 8B 16 018D R				mov		edx,zpCurLbaH
+ 008C  BE 0195 R				mov		si,offset sZapping
+ 008F  E8 0000 E				call	println
+ 0092  51					push	cx
+ 0093  B9 000A					mov		cx,10
+ 0096  E8 0000 E				call	print_size
+ 0099  59					pop		cx
+ 009A  BE 01A5 R				mov		si,offset sOf
+ 009D  E8 0000 E				call 	println
+
+				.286
+ 00A0  E8 0000 E				call	WriteSectExt
+ 00A3  72 30					jc		zaperror
+				.386
+ 00A5  66| 8B 47 13				mov		eax,[bx].DIExtSize
+				.286
+ 00A9  51					push	cx
+ 00AA  B9 000A					mov		cx,10
+ 00AD  E8 0000 E				call	print_size
+ 00B0  59					pop		cx
+ 00B1  B0 0D					mov		al,0dh
+ 00B3  E8 0000 E				call	PrintChar
+				.386
+ 00B6  66| A1 0189 R				mov		eax,zpCurLbaL
+ 00BA  66| 40					inc		eax
+				.286
+ 00BC  73 05					jnc		z1
+				.386
+ 00BE  66| FF 06 018D R				inc		zpCurLbah
+ 00C3				z1:
+ 00C3  66| A3 0189 R				mov		zpCurLbaL,eax
+ 00C7  66| 39 47 13				cmp		[bx].DIExtSize,eax
+ 00CB  7C B1					jl		zpextlp
+ 00CD  66| 39 57 0F				cmp		[bx].DIExtSize1,edx
+ 00D1  7D AB					jge		zpextlp
+ 00D3  EB 00					jmp		zapdrvdone
+						
+ 00D5				zaperror:
+
+ 00D5				zapdrvdone:
+ 00D5  58					pop		ax
+ 00D6  5B					pop		bx
+ 00D7  59					pop		cx
+ 00D8  5F					pop		di
+ 00D9  C3					ret
+
+
+				;******************************************************************************
+				;*    ZapPartition - cl has drve id ch has partition indx
+				;*	   Wipes all data on drive and fills partition with 0			 
+				;*	   using either int 13-3 for older bioses or 13-43 for enhanced BIOSes			 
+				;*
+				;******************************************************************************
+				public ZapPartition
+ 00DA				ZapPartition:
+ 00DA  51					push	cx
+ 00DB  53					push	bx
+ 00DC  50					push	ax
+				;
+				;   --- get pointer to drive info ---
+				;
+ 00DD  B5 00					mov		ch,0
+ 00DF  BB 0000 E				mov		bx,offset dinf
+ 00E2  B8 0223					mov		ax,SIZEOF DriveInfo
+ 00E5  F7 E1					mul		cx
+ 00E7  03 D8					add		bx,ax
+
+						assume 	bx:ptr DriveInfo
+						
+ 00E9  8A C5					mov		al,ch
+ 00EB  32 E4					xor		ah,ah
+ 00ED  B1 83					mov		cl,sizeof PARTITION_INFO
+ 00EF  F6 E1					mul		cl
+ 00F1  8B F8					mov		di,ax
+						assume  di:ptr PARTITION_INFO 
+				;
+				;   --- see if drive has extensions
+				;		 
+ 00F3  80 7F 02 55				cmp		[bx].DIExtend,DIEXTENDED
+ 00F7  74 45					jz		zapPExtend
+				;
+				;   --- no extensions, use older bios writes
+				;
+ 00F9  E9 0089					jmp		zapprtdone	; not ready!!!!!!!!!
+
+				;
+				;  need to get starting cylinder head sector
+				;
+				;  and compare to ending cylinder head sector
+				;
+				;
+					.286
+ 00FC				zppcyllp:
+ 00FC  51					push	cx
+ 00FD  8A 4D 05					mov		cl,[di].PIpte.bte_endhead			; for each head
+ 0100  B5 00					mov		ch,0
+ 0102  8A 45 01					mov		al,[di].PIpte.bte_starthead
+ 0105  A2 0191 R				mov		zpCurHead,al
+ 0108				zpphdlp:
+ 0108  51					push	cx
+ 0109  8A 4F 03					mov		cl,[bx].DISectors		; for each sector
+ 010C  B5 00					mov		ch,0
+ 010E  C6 06 0192 R 01				mov		zpCurSect,1
+ 0113				zppseclp:
+ 0113  53					push	bx
+ 0114  51					push	cx
+ 0115  8A 17					mov		dl,[bx].DIid			; get Drive id
+ 0117  8A 36 0191 R				mov		dh,zpCurHead
+ 011B  8B 1E 0193 R				mov		bx,zpCurCyl
+ 011F  8A 0E 0192 R				mov		cl,zpCurSect
+ 0123  E8 0000 E				call WriteSectStd
+ 0126  FE 06 0192 R				inc		zpCurSect		
+ 012A  59					pop		cx
+ 012B  5B					pop		bx
+ 012C  E2 E5					loop	zppseclp					; next Sector
+
+ 012E  FE 06 0191 R				inc		zpCurHead
+ 0132  59					pop		cx
+ 0133  E2 D3					loop	zpphdlp					; next head
+
+ 0135  FF 06 0193 R				inc		zpCurCyl
+ 0139  59					pop		cx
+ 013A  E2 C0					loop	zppcyllp					; next Cylinder
+ 013C  EB 47					jmp		zapprtdone
+
+
+
+ 013E				zapPExtend:
+						assume 	bx:ptr DriveInfo		;from above
+						assume  di:ptr PARTITION_INFO 
+				.386		
+ 013E  66| 8B 45 08				mov		eax,[di].PIpte.bte_relativesector
+ 0142  66| A3 0189 R				mov		zpCurLbaL,eax
+ 0146  66| C7 06 018D R				mov		zpCurLbaH,0
+        00000000
+ 014F				zppextlp:		
+				.286
+ 014F  57					push	di
+ 0150  BF 0000 E				mov		di,offset dskbuffer1
+ 0153  8A 0F					mov		cl,[bx].DIid
+				.386
+ 0155  66| 8B 16 018D R				mov		edx,zpCurLbaH
+ 015A  66| A1 0189 R				mov		eax,zpCurLbaL
+				.286
+ 015E  E8 0000 E				call	WriteSectExt
+ 0161  5F					pop		di
+ 0162  73 03 E9 FF6E				jc		zaperror
+				.386
+ 0167  66| A1 0189 R				mov		eax,zpCurLbaL
+ 016B  66| 40					inc		eax
+				.286
+ 016D  72 03 E9 FF51				jnc		z1
+				.386
+ 0172  66| FF 06 018D R				inc		zpCurLbah
+ 0177				zp1:
+ 0177  66| A3 0189 R				mov		zpCurLbaL,eax
+						;cmp		[di].DIExtSize,edx
+						;jl		zpextlp
+ 017B  66| 39 45 0C				cmp		[di].PIpte.bte_totalsector,eax
+ 017F  0F 8C FEFB				jl		zpextlp
+ 0183  EB 00					jmp		zapprtdone
+						
+ 0185				zapperror:
+
+ 0185				zapprtdone:
+ 0185  58					pop		ax
+ 0186  5B					pop		bx
+ 0187  59					pop		cx
+ 0188  C3					ret
+
+ 0189 00000000			zpCurLbaL	dd	0
+ 018D 00000000			zpCurLbaH	dd	0
+ 0191 00			zpCurHead	db	0
+ 0192 00			zpCurSect	db	0
+ 0193 0000			zpCurCyl	dw	0
+
+ 0195 5A 61 70 70 69 6E		sZapping	db	"Zapping sector ",0
+        67 20 73 65 63 74
+        6F 72 20 00
+ 01A5 20 6F 66 20 00		sOf			db	" of ",0
+
+ 01AA				_Text ENDS
+					END	
+Microsoft (R) Macro Assembler Version 6.11		    06/17/05 15:51:28
+Zapper.asm						     Symbols 2 - 1
+
+
+
+
+Macros:
+
+                N a m e                 Type
+
+OPSIZ  . . . . . . . . . . . . .	Proc
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+BiosDrvTab . . . . . . . . . . .	 0010
+  BDTCylinders . . . . . . . . .	 0000	     Word
+  BDTHeads . . . . . . . . . . .	 0002	     Byte
+  BDTPrecomp . . . . . . . . . .	 0005	     Word
+  BDTECC . . . . . . . . . . . .	 0007	     Byte
+  BDTCtrl  . . . . . . . . . . .	 0008	     Byte
+  BDTLanding . . . . . . . . . .	 000C	     Word
+  BDTSectors . . . . . . . . . .	 000E	     Byte
+DriveInfo  . . . . . . . . . . .	 0223
+  DIid . . . . . . . . . . . . .	 0000	     Byte
+  DIHeads  . . . . . . . . . . .	 0001	     Byte
+  DIExtend . . . . . . . . . . .	 0002	     Byte
+  DISectors  . . . . . . . . . .	 0003	     Byte
+  DICylinders  . . . . . . . . .	 0005	     Word
+  DIFreeSect . . . . . . . . . .	 0007	     DWord
+  DITotSect  . . . . . . . . . .	 000B	     DWord
+  DIExtSize1 . . . . . . . . . .	 000F	     DWord
+  DIExtSize  . . . . . . . . . .	 0013	     DWord
+  DIPartTab1 . . . . . . . . . .	 0017	      0083
+EXT_PARTITION  . . . . . . . . .	 001A
+  EPpte  . . . . . . . . . . . .	 0000	      0010
+  EPStartLBA . . . . . . . . . .	 0010	     DWord
+  EPEndLBA . . . . . . . . . . .	 0014	     DWord
+  EPbootable . . . . . . . . . .	 0018	     Byte
+  EPDrive  . . . . . . . . . . .	 0019	     Byte
+ExtBiosDiskAddrPkt . . . . . . .	 0018
+  EBDAPSz  . . . . . . . . . . .	 0000	     Byte
+  EBDAPres1  . . . . . . . . . .	 0001	     Byte
+  EBDAPBlocks  . . . . . . . . .	 0002	     Byte
+  EBDAPres2  . . . . . . . . . .	 0003	     Byte
+  EBDAPLowPtr  . . . . . . . . .	 0004	     Word
+  EBDAPHighPtr . . . . . . . . .	 0006	     Word
+  EBDAPLBAlow  . . . . . . . . .	 0008	     DWord
+  EBDAPLBAhigh . . . . . . . . .	 000C	     DWord
+  EBDAPFlatAdr1  . . . . . . . .	 0010	     DWord
+  EBDAPFlatAdr2  . . . . . . . .	 0014	     DWord
+ExtBiosDrvTab  . . . . . . . . .	 001E
+  EBDTBuffSz . . . . . . . . . .	 0000	     Word
+  EBDTInfo . . . . . . . . . . .	 0002	     Word
+  EBDTCylinders  . . . . . . . .	 0004	     DWord
+  EBDTHeads  . . . . . . . . . .	 0008	     DWord
+  EBDTSectors  . . . . . . . . .	 000C	     DWord
+  EBDTTotSect  . . . . . . . . .	 0010	     DWord
+  EBDTTotSect1 . . . . . . . . .	 0014	     DWord
+  EBDTSectTrk  . . . . . . . . .	 0018	     Word
+  EBDTEDD  . . . . . . . . . . .	 001A	     DWord
+GWIND  . . . . . . . . . . . . .	 0014
+  xorg . . . . . . . . . . . . .	 0000	     Word
+  yorg . . . . . . . . . . . . .	 0002	     Word
+  xend . . . . . . . . . . . . .	 0004	     Word
+  yend . . . . . . . . . . . . .	 0006	     Word
+  xsiz . . . . . . . . . . . . .	 0008	     Word
+  ysiz . . . . . . . . . . . . .	 000A	     Word
+  bcolor . . . . . . . . . . . .	 000C	     Word
+  ccolor . . . . . . . . . . . .	 000E	     Word
+  currx  . . . . . . . . . . . .	 0010	     Word
+  curry  . . . . . . . . . . . .	 0012	     Word
+MODEINFO . . . . . . . . . . . .	 0100
+  modeattributes . . . . . . . .	 0000	     Word
+  winaattributes . . . . . . . .	 0002	     Byte
+  winbattributes . . . . . . . .	 0003	     Byte
+  wingranularity . . . . . . . .	 0004	     Word
+  winsize  . . . . . . . . . . .	 0006	     Word
+  winasegment  . . . . . . . . .	 0008	     Word
+  winbsegment  . . . . . . . . .	 000A	     Word
+  winfuncptr . . . . . . . . . .	 000C	     DWord
+  bytesperscanline . . . . . . .	 0010	     Word
+  xresolution  . . . . . . . . .	 0012	     Word
+  yresolution  . . . . . . . . .	 0014	     Word
+  xcharsize  . . . . . . . . . .	 0016	     Byte
+  ycharsize  . . . . . . . . . .	 0017	     Byte
+  numberofplanes . . . . . . . .	 0018	     Byte
+  bitsperpixel . . . . . . . . .	 0019	     Byte
+  numberofbanks  . . . . . . . .	 001A	     Byte
+  memorymodel  . . . . . . . . .	 001B	     Byte
+  banksize . . . . . . . . . . .	 001C	     Byte
+  numberofimagepages . . . . . .	 001D	     Byte
+  reserved1  . . . . . . . . . .	 001E	     Byte
+  redmasksize  . . . . . . . . .	 001F	     Byte
+  redfieldposition . . . . . . .	 0020	     Byte
+  greenmasksize  . . . . . . . .	 0021	     Byte
+  greenfieldposition . . . . . .	 0022	     Byte
+  bluemasksize . . . . . . . . .	 0023	     Byte
+  bluefieldposition  . . . . . .	 0024	     Byte
+  rsvdmasksize . . . . . . . . .	 0025	     Byte
+  rsvdfieldposition  . . . . . .	 0026	     Byte
+  directcolormodeinfo  . . . . .	 0027	     Byte
+  physbaseptr  . . . . . . . . .	 0028	     DWord
+  offscreenmemoffset . . . . . .	 002C	     DWord
+  offscreenmemsize . . . . . . .	 0030	     Word
+  reserved2  . . . . . . . . . .	 0032	     Byte
+PARTITION_INFO . . . . . . . . .	 0083
+  PIpte  . . . . . . . . . . . .	 0000	      0010
+  PIStartLBA . . . . . . . . . .	 0010	     DWord
+  PIEndLBA . . . . . . . . . . .	 0014	     DWord
+  PIbootable . . . . . . . . . .	 0018	     Byte
+  PIDrive  . . . . . . . . . . .	 0019	     Byte
+  PIExtended . . . . . . . . . .	 001A	     Byte
+  PIEParts . . . . . . . . . . .	 001B	      001A
+PARTITION_TABLE_ENTRY  . . . . .	 0010
+  bte_bootable . . . . . . . . .	 0000	     Byte
+  bte_starthead  . . . . . . . .	 0001	     Byte
+  bte_startsector  . . . . . . .	 0002	     Word
+  bte_system . . . . . . . . . .	 0004	     Byte
+  bte_endhead  . . . . . . . . .	 0005	     Byte
+  bte_endsector  . . . . . . . .	 0006	     Word
+  bte_relativesector . . . . . .	 0008	     DWord
+  bte_totalsector  . . . . . . .	 000C	     DWord
+VBEINFO  . . . . . . . . . . . .	 0200
+  vbesignature . . . . . . . . .	 0000	     Byte
+  vbeversion . . . . . . . . . .	 0004	     Word
+  oemstringptr . . . . . . . . .	 0006	     DWord
+  capabilities . . . . . . . . .	 000A	     Byte
+  videomodeptr . . . . . . . . .	 000E	     DWord
+  totalmemory  . . . . . . . . .	 0012	     Word
+  oemsoftwarerev . . . . . . . .	 0014	     Word
+  oemvendornameptr . . . . . . .	 0016	     DWord
+  oemproductnameptr  . . . . . .	 001A	     DWord
+  oemproductrevptr . . . . . . .	 001E	     DWord
+  reserved . . . . . . . . . . .	 0022	     Byte
+  oemdata  . . . . . . . . . . .	 0100	     Byte
+VDCONTX  . . . . . . . . . . . .	 0338
+  Create . . . . . . . . . . . .	 0000	     Word
+  Destroy  . . . . . . . . . . .	 0002	     Word
+  Clear  . . . . . . . . . . . .	 0004	     Word
+  getNumPages  . . . . . . . . .	 0006	     Word
+  setActivePage  . . . . . . . .	 0008	     Word
+  setVisiblePage . . . . . . . .	 000A	     Word
+  pixel  . . . . . . . . . . . .	 000C	     Word
+  fillRect . . . . . . . . . . .	 000E	     Word
+  drawRect . . . . . . . . . . .	 0010	     Word
+  drawChar . . . . . . . . . . .	 0012	     Word
+  drawLine . . . . . . . . . . .	 0014	     Word
+  drawString . . . . . . . . . .	 0016	     Word
+  createWindow . . . . . . . . .	 0018	     Word
+  createbutton . . . . . . . . .	 001A	     Word
+  vbi  . . . . . . . . . . . . .	 001C	      0200
+  vmi  . . . . . . . . . . . . .	 021C	      0100
+  origMode . . . . . . . . . . .	 031C	     Word
+  currentMode  . . . . . . . . .	 031E	     Word
+  currentBank  . . . . . . . . .	 0320	     Word
+  banksPerPage . . . . . . . . .	 0322	     Word
+  activePage . . . . . . . . . .	 0324	     Word
+  activePageOffset . . . . . . .	 0326	     Word
+  visiblePage  . . . . . . . . .	 0328	     Word
+  error  . . . . . . . . . . . .	 032A	     Word
+  maxx . . . . . . . . . . . . .	 032C	     Word
+  maxy . . . . . . . . . . . . .	 032E	     Word
+  vwidth . . . . . . . . . . . .	 0330	     Word
+  vheight  . . . . . . . . . . .	 0332	     Word
+  fontSeg  . . . . . . . . . . .	 0334	     Word
+  fontOff  . . . . . . . . . . .	 0336	     Word
+VGACOLOR . . . . . . . . . . . .	 0006
+  red  . . . . . . . . . . . . .	 0000	     Word
+  green  . . . . . . . . . . . .	 0002	     Word
+  blue . . . . . . . . . . . . .	 0004	     Word
+VgaInfoBlock . . . . . . . . . .	 0200
+  VESASignature  . . . . . . . .	 0000	     Byte
+  VESAVersion  . . . . . . . . .	 0004	     Word
+  OEMStringPtr . . . . . . . . .	 0006	     DWord
+  Capabilities . . . . . . . . .	 000A	     Byte
+  VideoModePtr . . . . . . . . .	 000E	     DWord
+  TotalMemory  . . . . . . . . .	 0012	     Word
+  Reserved . . . . . . . . . . .	 0014	     Byte
+  OemData  . . . . . . . . . . .	 0100	     Byte
+
+
+Records:
+
+                N a m e                  Width     # fields
+                                         Shift     Width     Mask      Initial
+
+CYLSEC . . . . . . . . . . . . .	 0010	   0002
+  Cylinder . . . . . . . . . . .	 0006	   000A	     FFC0     ?
+  Sector . . . . . . . . . . . .	 0000	   0006	     003F     ?
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+_Text  . . . . . . . . . . . . .	16 Bit	 01AA	  Para	  Public  
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+AIXBOOT  . . . . . . . . . . . .	Number	 0008h	 
+AIXDATA  . . . . . . . . . . . .	Number	 0009h	 
+BEXTEND  . . . . . . . . . . . .	Number	 000Fh	 
+BFAT16 . . . . . . . . . . . . .	Number	 000Eh	 
+BFAT32 . . . . . . . . . . . . .	Number	 000Ch	 
+BGFAT16  . . . . . . . . . . . .	Number	 0006h	 
+BOOTABLE . . . . . . . . . . . .	Number	 0001h	 
+DELL . . . . . . . . . . . . . .	Number	 00DEh	 
+DIEXTENDED . . . . . . . . . . .	Number	 0055h	 
+DYNVOL . . . . . . . . . . . . .	Number	 0042h	 
+EFI  . . . . . . . . . . . . . .	Number	 00EFh	 
+EISA . . . . . . . . . . . . . .	Number	 0012h	 
+EXTEND . . . . . . . . . . . . .	Number	 0005h	 
+FAT12  . . . . . . . . . . . . .	Number	 0001h	 
+FAT16  . . . . . . . . . . . . .	Number	 0004h	 
+FAT32  . . . . . . . . . . . . .	Number	 000Bh	 
+GPT  . . . . . . . . . . . . . .	Number	 00EEh	 
+GetChar  . . . . . . . . . . . .	L Near	 0000	  External
+GetLine  . . . . . . . . . . . .	L Near	 0000	  External
+GetNextParam . . . . . . . . . .	L Near	 0000	  External
+HIB  . . . . . . . . . . . . . .	Number	 00A0h	 
+IBM  . . . . . . . . . . . . . .	Number	 00FEh	 
+LINUXRT  . . . . . . . . . . . .	Number	 0083h	 
+LINUXSW  . . . . . . . . . . . .	Number	 0082h	 
+MDFAT16  . . . . . . . . . . . .	Number	 0086h	 
+MDNTFS . . . . . . . . . . . . .	Number	 0087h	 
+NTFS . . . . . . . . . . . . . .	Number	 0007h	 
+OS2BOOT  . . . . . . . . . . . .	Number	 000Ah	 
+POWMAN . . . . . . . . . . . . .	Number	 0084h	 
+PTE_BOOTABLE . . . . . . . . . .	Number	 0080h	 
+PTE_EXTENDED . . . . . . . . . .	Number	 00AAh	 
+ReadSectExt  . . . . . . . . . .	L Near	 0000	  External
+ReadSectStd  . . . . . . . . . .	L Near	 0000	  External
+WriteSectExt . . . . . . . . . .	L Near	 0000	  External
+WriteSectStd . . . . . . . . . .	L Near	 0000	  External
+XENIXR . . . . . . . . . . . . .	Number	 0002h	 
+XENIXU . . . . . . . . . . . . .	Number	 0003h	 
+ZapDrive . . . . . . . . . . . .	L Near	 0000	  _Text	Public
+ZapPartition . . . . . . . . . .	L Near	 00DA	  _Text	Public
+activeWindow . . . . . . . . . .	L Near	 0000	  External
+ascii2hex  . . . . . . . . . . .	L Near	 0000	  External
+dinf . . . . . . . . . . . . . .	L Near	 0000	  External
+displayBuffer  . . . . . . . . .	L Near	 0000	  External
+dskbuffer1 . . . . . . . . . . .	L Near	 0000	  External
+gwDrives . . . . . . . . . . . .	L Near	 0000	  External
+init_command . . . . . . . . . .	L Near	 0000	  External
+init_sector  . . . . . . . . . .	L Near	 0000	  External
+init_vid . . . . . . . . . . . .	L Near	 0000	  External
+kill_vid . . . . . . . . . . . .	L Near	 0000	  External
+printChar  . . . . . . . . . . .	L Near	 0000	  External
+printHexByte . . . . . . . . . .	L Near	 0000	  External
+printHexDWord  . . . . . . . . .	L Near	 0000	  External
+printHexNibble . . . . . . . . .	L Near	 0000	  External
+printHexWord . . . . . . . . . .	L Near	 0000	  External
+print_size . . . . . . . . . . .	L Near	 0000	  External
+println  . . . . . . . . . . . .	L Near	 0000	  External
+sOf  . . . . . . . . . . . . . .	Byte	 01A5	  _Text	
+sZapping . . . . . . . . . . . .	Byte	 0195	  _Text	
+showZero . . . . . . . . . . . .	L Near	 0000	  External
+vidcontext . . . . . . . . . . .	L Near	 0000	  External
+z1 . . . . . . . . . . . . . . .	L Near	 00C3	  _Text	
+zapDExtend . . . . . . . . . . .	L Near	 006C	  _Text	
+zapPExtend . . . . . . . . . . .	L Near	 013E	  _Text	
+zapdrvdone . . . . . . . . . . .	L Near	 00D5	  _Text	
+zaperror . . . . . . . . . . . .	L Near	 00D5	  _Text	
+zapperror  . . . . . . . . . . .	L Near	 0185	  _Text	
+zapprtdone . . . . . . . . . . .	L Near	 0185	  _Text	
+zp1  . . . . . . . . . . . . . .	L Near	 0177	  _Text	
+zpCurCyl . . . . . . . . . . . .	Word	 0193	  _Text	
+zpCurHead  . . . . . . . . . . .	Byte	 0191	  _Text	
+zpCurLbaH  . . . . . . . . . . .	DWord	 018D	  _Text	
+zpCurLbaL  . . . . . . . . . . .	DWord	 0189	  _Text	
+zpCurSect  . . . . . . . . . . .	Byte	 0192	  _Text	
+zpcyllp  . . . . . . . . . . . .	L Near	 002B	  _Text	
+zpextlp  . . . . . . . . . . . .	L Near	 007E	  _Text	
+zphdlp . . . . . . . . . . . . .	L Near	 0036	  _Text	
+zppcyllp . . . . . . . . . . . .	L Near	 00FC	  _Text	
+zppextlp . . . . . . . . . . . .	L Near	 014F	  _Text	
+zpphdlp  . . . . . . . . . . . .	L Near	 0108	  _Text	
+zppseclp . . . . . . . . . . . .	L Near	 0113	  _Text	
+zpseclp  . . . . . . . . . . . .	L Near	 0041	  _Text	
+
+	   0 Warnings
+	   0 Errors

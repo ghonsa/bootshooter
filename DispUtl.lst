@@ -1,0 +1,1804 @@
+Microsoft (R) Macro Assembler Version 6.11		    06/17/05 15:51:00
+DispUtl.asm						     Page 1 - 1
+
+
+				;***********************************************************
+				;  DispUtl - DisplY UTILITIES
+				;        
+				;  Copyright, 2005 Greg Honsa
+				;***********************************************************
+				 include pte.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C 
+ = 0001			      C BOOTABLE equ 1			; set to make a bootable image
+			      C OPSIZ macro
+			      C 	db 66h
+			      C endm
+			      C 
+			      C ;
+			      C ;** fat type byte defs
+			      C ;
+ = 0001			      C FAT12 	equ 01h 	;FAT12 primary parttion (fewer than 32,680 sectors in the volume) 
+ = 0002			      C XENIXR	equ 02h		;Xenix root
+ = 0003			      C XENIXU  equ 03h		;Xenix usr
+ = 0004			      C FAT16 	equ 04h 	;FAT16 partition or logical drive ( 16 MB) 
+ = 0005			      C EXTEND  equ 05h 	;Extended partition 
+ = 0006			      C BGFAT16	equ 06h		;BIGDOS FAT16 partition or logical drive (33 mb)  
+ = 0007			      C NTFS	equ 07h		;Installable File System (NTFS partition or logical drive) 
+ = 0008			      C AIXBOOT equ 08h		;AIX boot partition
+ = 0009			      C AIXDATA equ 09h		;AIX data
+ = 000A			      C OS2BOOT equ	0Ah		;OS/2 boot partition
+ = 000B			      C FAT32	equ 0Bh		;FAT32 partition or logical drive 
+ = 000C			      C BFAT32	equ 0Ch		;FAT32 partition or logical drive using BIOS INT 13h extensions 
+ = 000E			      C BFAT16	equ 0Eh 	;BIGDOS FAT16 partition or logical drive using BIOS INT 13h extensions 
+ = 000F			      C BEXTEND equ 0Fh		; Extended partition using BIOS INT 13h extensions 
+ = 0012			      C EISA	equ 12h 	;EISA partition or OEM partition 
+ = 0042			      C DYNVOL	equ 42h 	;Dynamic volume 
+ = 0082			      C LINUXSW equ 82h		;Linux swap partition
+ = 0083			      C LINUXRT equ 83h		;Linux native partition
+ = 0084			      C POWMAN  equ 84h 	;Power management hibernation partition 
+ = 0086			      C MDFAT16	equ 86h 	;Multidisk FAT16 volume created by using Windows NT 4.0 
+ = 0087			      C MDNTFS  equ 87h 	;Multidisk NTFS volume created by using Windows NT 4.0 
+ = 00A0			      C HIB		equ 0A0h 	;Laptop hibernation partition 
+ = 00DE			      C DELL	equ 0DEh 	;Dell OEM partition 
+ = 00FE			      C IBM		equ 0FEh 	;IBM OEM partition 
+ = 00EE			      C GPT		equ 0EEh 	;GPT partition  
+ = 00EF			      C EFI		equ 0EFh 	;EFI System partition on an MBR disk 
+			      C 
+ = 0080			      C PTE_BOOTABLE EQU 80h
+ = 00AA			      C PTE_EXTENDED EQU 0AAh
+			      C CYLSEC record Cylinder:10,Sector:6
+			      C 
+ 0010			      C PARTITION_TABLE_ENTRY struc
+ 0000  00		      C 	bte_bootable		db	?
+ 0001  00		      C 	bte_starthead		db	?
+ 0002  0000		      C 	bte_startsector		dw	?	     
+ 0004  00		      C 	bte_system			db	?
+ 0005  00		      C 	bte_endhead			db	?
+ 0006  0000		      C 	bte_endsector		dw	?
+ 0008  00000000		      C 	bte_relativesector	dd	?
+ 000C  00000000		      C 	bte_totalsector		dd	?
+			      C PARTITION_TABLE_ENTRY ends
+			      C 
+ 001A			      C EXT_PARTITION struc
+ 0000  00 00 0000 00 00	      C   	EPpte		PARTITION_TABLE_ENTRY <>
+       0000 00000000
+       00000000
+ 0010  00000000		      C 	EPStartLBA			dd ?
+ 0014  00000000		      C 	EPEndLBA			dd ?
+ 0018  00		      C 	EPbootable			db ?
+ 0019  00		      C 	EPDrive				db ?
+			      C EXT_PARTITION ends
+			      C 
+ 0083			      C PARTITION_INFO struc
+ 0000  00 00 0000 00 00	      C   	PIpte		PARTITION_TABLE_ENTRY <>
+       0000 00000000
+       00000000
+ 0010  00000000		      C 	PIStartLBA			dd ?
+ 0014  00000000		      C 	PIEndLBA			dd ?
+ 0018  00		      C 	PIbootable			db ?
+ 0019  00		      C 	PIDrive				db ?
+ 001A  00		      C 	PIExtended			db ?
+ 001B  0004 [		      C    	PIEParts			EXT_PARTITION 4 DUP(<>)
+        00 00 0000 00 00
+        0000 00000000
+        00000000 00000000
+        00000000 00 00
+       ]
+			      C PARTITION_INFO	ends
+			      C ;
+			      C ;--- drive info
+			      C ;
+ = 0055			      C DIEXTENDED		equ	055h
+ 0223			      C DriveInfo	STRUC
+ 0000  00		      C 	DIid			db	?
+ 0001  00		      C 	DIHeads			db	?		
+ 0002  00		      C 	DIExtend		db	?
+ 0003  00		      C 	DISectors		db	?
+ 0004  00		      C 					db	?
+ 0005  0000		      C 	DICylinders		dw  ?
+ 0007  00000000		      C 	DIFreeSect		dd	?
+ 000B  00000000		      C 	DITotSect		dd	?
+ 000F  00000000		      C    	DIExtSize1		dd  ?
+ 0013  00000000		      C    	DIExtSize		dd  ?
+ 0017  0004 [		      C    	DIPartTab1		PARTITION_INFO 4 DUP (<>)
+        00 00 0000 00 00
+        0000 00000000
+        00000000 00000000
+        00000000 00 00 00
+        0004 [
+	 00 00 0000 00 00
+	 0000 00000000
+	 00000000
+	 00000000
+	 00000000 00 00
+	]
+			      C 
+			      C DriveInfo	ENDS
+			      C ;
+			      C ; --- BIOS disk parameter table ---
+			      C ;
+ 0010			      C BiosDrvTab	STRUC
+ 0000  0000		      C 	BDTCylinders	dw	?
+ 0002  00		      C 	BDTHeads		db	?
+ 0003  0000		      C 					dw	?
+ 0005  0000		      C 	BDTPrecomp		dw	?
+ 0007  00		      C 	BDTECC			db	?
+ 0008  00		      C 	BDTCtrl			db	?
+ 0009  00		      C 					db	?
+ 000A  0000		      C 					dw	?
+ 000C  0000		      C 	BDTLanding		dw	?
+ 000E  00		      C 	BDTSectors		db	?
+ 000F  00		      C 					db	?		
+			      C BiosDrvTab ENDS
+			      C ;
+			      C ; --- BIOS extended disk parameter table
+			      C ;
+ 001E			      C ExtBiosDrvTab STRUC
+ 0000  0000		      C 	EBDTBuffSz		dw	?
+ 0002  0000		      C 	EBDTInfo		dw	?
+ 0004  00000000		      C 	EBDTCylinders	dd	?
+ 0008  00000000		      C 	EBDTHeads		dd	?
+ 000C  00000000		      C 	EBDTSectors		dd	?
+ 0010  00000000		      C 	EBDTTotSect 	dd	?
+ 0014  00000000		      C 	EBDTTotSect1	dd	?
+ 0018  0000		      C 	EBDTSectTrk		dw	?
+ 001A  00000000		      C 	EBDTEDD			dd	?				   	
+			      C ExtBiosDrvTab ENDS
+			      C ;
+			      C ;  --- entended disk address packet
+			      C ;
+ 0018			      C ExtBiosDiskAddrPkt STRUC
+ 0000  00		      C 	EBDAPSz			db	?
+ 0001  00		      C 	EBDAPres1		db	?
+ 0002  00		      C 	EBDAPBlocks		db	?
+ 0003  00		      C 	EBDAPres2		db	?
+ 0004  0000		      C 	EBDAPLowPtr		dw	?
+ 0006  0000		      C 	EBDAPHighPtr	dw	?
+ 0008  00000000		      C 	EBDAPLBAlow		dd	?
+ 000C  00000000		      C 	EBDAPLBAhigh	dd	?
+ 0010  00000000		      C 	EBDAPFlatAdr1	dd	?
+ 0014  00000000		      C 	EBDAPFlatAdr2	dd	?
+			      C ExtBiosDiskAddrPkt ENDS
+			      C 	
+			      C ;
+			      C ; --- vesa info
+			      C ;
+ 0200			      C VgaInfoBlock    STRUC
+ 0000   0001 [		      C       VESASignature   db   'VESA'      ; 4 signature bytes 
+	 56 45 53 41
+	]
+ 0004  0000		      C       VESAVersion     dw   ?           ; VESA version number
+ 0006  00000000		      C       OEMStringPtr    dd   ?           ; Pointer to OEM string
+ 000A   0004 [		      C       Capabilities    db   4 dup(?)    ; capabilities of the video environment
+	 00
+	]
+ 000E  00000000		      C       VideoModePtr    dd   ?           ; pointer to supported Super VGA modes
+ 0012  0000		      C       TotalMemory     dw   ?           ; Number of 64kb memory blocks on board
+ 0014   00EC [		      C       Reserved        db   236 dup(?)  ; Remainder of VgaInfoBlock
+	 00
+	]
+ 0100   0100 [		      C 	  OemData		  db   256 dup(?)  ;
+	 00
+	]
+			      C VgaInfoBlock    ENDS
+			      C 
+				 include video.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C 
+			      C 
+ 0200			      C VBEINFO struc
+ 0000   0001 [		      C    vbesignature 	db "VESA"		; // VBE Signature
+	 56 45 53 41
+	]
+ 0004  0000		      C    vbeversion		dw	?        	; // VBE Version
+ 0006  00000000		      C    oemstringptr 	dd	?			; // Pointer to OEM String
+ 000A   0004 [		      C    capabilities  	db 4 dup (?)   	; // Capabilities of graphics cont.
+	 00
+	]
+ 000E  00000000		      C    videomodeptr 	dd	? 			; // Pointer to Video Mode List
+ 0012  0000		      C    totalmemory		dw	?			; // number of 64Kb memory blocks
+ 0014  0000		      C    oemsoftwarerev	dw	?			; // VBE implementation Software revision
+ 0016  00000000		      C    oemvendornameptr	dd	?			; // Pointer to Vendor Name String
+ 001A  00000000		      C    oemproductnameptr dd	?			; // Pointer to Product Name String
+ 001E  00000000		      C    oemproductrevptr	dd	?			; // Pointer to Product Revision String
+ 0022   00DE [		      C    reserved 		db 222 dup (?)			; // Reserved for VBE implementation scratch area
+	 00
+	]
+ 0100   0100 [		      C    oemdata			db 256 dup (?)	; // Data Area for OEM Strings
+	 00
+	]
+			      C VBEINFO	ends
+			      C 
+ 0100			      C MODEINFO struc
+			      C 
+			      C    ;// Mandatory information for all VBE revision
+			      C 
+ 0000  0000		      C    modeattributes	dw	?			; // Mode attributes
+ 0002  00		      C    winaattributes	db	?			; // Window A attributes
+ 0003  00		      C    winbattributes	db	?			; // Window B attributes
+ 0004  0000		      C    wingranularity	dw	?			; // Window granularity
+ 0006  0000		      C    winsize			dw	?			; // Window size
+ 0008  0000		      C    winasegment		dw	?			; // Window A start segment
+ 000A  0000		      C    winbsegment		dw	?			; // Window B start segment
+ 000C  00000000		      C    winfuncptr		dd	?			; // pointer to window function
+ 0010  0000		      C    bytesperscanline	dw	?			; // Bytes per scan line
+			      C 
+			      C    ;// Mandatory information for VBE 1.2 and above
+			      C 
+ 0012  0000		      C    xresolution		dw	?			; // Horizontal resolution in pixel or chars
+ 0014  0000		      C    yresolution		dw	?			; // Vertical resolution in pixel or chars
+ 0016  00		      C    xcharsize		db	?			; // Character cell width in pixel
+ 0017  00		      C    ycharsize		db	?			; // Character cell height in pixel
+ 0018  00		      C    numberofplanes	db	?			; // Number of memory planes
+ 0019  00		      C    bitsperpixel		db	?			; // Bits per pixel
+ 001A  00		      C    numberofbanks	db	?			; // Number of banks
+ 001B  00		      C    memorymodel		db	?			; // Memory model type
+ 001C  00		      C    banksize			db	?			; // Bank size in KB
+ 001D  00		      C    numberofimagepages db ?			; // Number of images
+ 001E  00		      C    reserved1		db	?			; // Reserved for page function
+			      C 
+			      C    ;// Direct Color fields (required for direct/6 and YUV/7 memory models)
+			      C 
+ 001F  00		      C    redmasksize		db	?			; // Size of direct color red mask in bits
+ 0020  00		      C    redfieldposition	db	?			; // Bit position of lsb of red bask
+ 0021  00		      C    greenmasksize	db	?			; // Size of direct color green mask in bits
+ 0022  00		      C    greenfieldposition db	?		; // Bit position of lsb of green bask
+ 0023  00		      C    bluemasksize		db	?			; // Size of direct color blue mask in bits
+ 0024  00		      C    bluefieldposition db ?			; // Bit position of lsb of blue bask
+ 0025  00		      C   rsvdmasksize		db	?			; // Size of direct color reserved mask in bits
+ 0026  00		      C    rsvdfieldposition db	?			; // Bit position of lsb of reserved bask   
+ 0027  00		      C    directcolormodeinfo db ?			; // Direct color mode attributes
+			      C 
+			      C    ;// Mandatory information for VBE 2.0 and above
+			      C 
+ 0028  00000000		      C    physbaseptr		dd	?			; // Physical address for flat frame buffer
+ 002C  00000000		      C    offscreenmemoffset dd ?			; // Pointer to start of off screen memory
+ 0030  0000		      C    offscreenmemsize dw ?			; // Amount of off screen memory in 1Kb units
+ 0032   00CE [		      C    reserved2 db 206 dup (?)			; // Remainder of ModeInfoBlock
+	 00
+	]
+			      C 
+			      C MODEINFO ends
+			      C 
+ 0006			      C VGACOLOR struc
+ 0000  0000		      C     red		dw	?
+ 0002  0000		      C     green	dw	?
+ 0004  0000		      C     blue	dw	?
+			      C VGACOLOR ends
+			      C 
+			      C 
+				 include vgutl.inc
+			      C ;*****************************************************************************
+			      C ;  vgutl - video utility routines
+			      C ;       Copyright 2005 Greg Honsa
+			      C ;
+			      C ;*****************************************************************************
+			      C 						    
+			      C extrn vgaSetPalette:near
+			      C extrn vbeGetMode:near							 
+			      C extrn vbeSetMode:near
+			      C extrn vbeGetInfo:near
+			      C extrn vbeGetModeInfo:near
+			      C extrn vbeSetBankAddr:near
+			      C extrn vbeSetDisplayStart:near	 
+			      C extrn waitBlankEnd:near
+			      C extrn waitRetrace:near
+			      C extrn memset:near
+			      C 
+			      C 
+			      C 
+			      C 
+			      C 
+			      C 
+			      C 						   
+			      C 					   
+			      C 
+				 include vcontex.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C  include video.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C 
+			      C 
+			      C VBEINFO struc
+			      C    vbesignature 	db "VESA"		; // VBE Signature
+			      C    vbeversion		dw	?        	; // VBE Version
+			      C    oemstringptr 	dd	?			; // Pointer to OEM String
+			      C    capabilities  	db 4 dup (?)   	; // Capabilities of graphics cont.
+			      C    videomodeptr 	dd	? 			; // Pointer to Video Mode List
+			      C    totalmemory		dw	?			; // number of 64Kb memory blocks
+			      C    oemsoftwarerev	dw	?			; // VBE implementation Software revision
+			      C    oemvendornameptr	dd	?			; // Pointer to Vendor Name String
+			      C    oemproductnameptr dd	?			; // Pointer to Product Name String
+			      C    oemproductrevptr	dd	?			; // Pointer to Product Revision String
+			      C    reserved 		db 222 dup (?)			; // Reserved for VBE implementation scratch area
+			      C    oemdata			db 256 dup (?)	; // Data Area for OEM Strings
+			      C VBEINFO	ends
+			      C 
+			      C MODEINFO struc
+			      C 
+			      C    ;// Mandatory information for all VBE revision
+			      C 
+			      C    modeattributes	dw	?			; // Mode attributes
+			      C    winaattributes	db	?			; // Window A attributes
+			      C    winbattributes	db	?			; // Window B attributes
+			      C    wingranularity	dw	?			; // Window granularity
+			      C    winsize			dw	?			; // Window size
+			      C    winasegment		dw	?			; // Window A start segment
+			      C    winbsegment		dw	?			; // Window B start segment
+			      C    winfuncptr		dd	?			; // pointer to window function
+			      C    bytesperscanline	dw	?			; // Bytes per scan line
+			      C 
+			      C    ;// Mandatory information for VBE 1.2 and above
+			      C 
+			      C    xresolution		dw	?			; // Horizontal resolution in pixel or chars
+			      C    yresolution		dw	?			; // Vertical resolution in pixel or chars
+			      C    xcharsize		db	?			; // Character cell width in pixel
+			      C    ycharsize		db	?			; // Character cell height in pixel
+			      C    numberofplanes	db	?			; // Number of memory planes
+			      C    bitsperpixel		db	?			; // Bits per pixel
+			      C    numberofbanks	db	?			; // Number of banks
+			      C    memorymodel		db	?			; // Memory model type
+			      C    banksize			db	?			; // Bank size in KB
+			      C    numberofimagepages db ?			; // Number of images
+			      C    reserved1		db	?			; // Reserved for page function
+			      C 
+			      C    ;// Direct Color fields (required for direct/6 and YUV/7 memory models)
+			      C 
+			      C    redmasksize		db	?			; // Size of direct color red mask in bits
+			      C    redfieldposition	db	?			; // Bit position of lsb of red bask
+			      C    greenmasksize	db	?			; // Size of direct color green mask in bits
+			      C    greenfieldposition db	?		; // Bit position of lsb of green bask
+			      C    bluemasksize		db	?			; // Size of direct color blue mask in bits
+			      C    bluefieldposition db ?			; // Bit position of lsb of blue bask
+			      C   rsvdmasksize		db	?			; // Size of direct color reserved mask in bits
+			      C    rsvdfieldposition db	?			; // Bit position of lsb of reserved bask   
+			      C    directcolormodeinfo db ?			; // Direct color mode attributes
+			      C 
+			      C    ;// Mandatory information for VBE 2.0 and above
+			      C 
+			      C    physbaseptr		dd	?			; // Physical address for flat frame buffer
+			      C    offscreenmemoffset dd ?			; // Pointer to start of off screen memory
+			      C    offscreenmemsize dw ?			; // Amount of off screen memory in 1Kb units
+			      C    reserved2 db 206 dup (?)			; // Remainder of ModeInfoBlock
+			      C 
+			      C MODEINFO ends
+			      C 
+			      C VGACOLOR struc
+			      C     red		dw	?
+			      C     green	dw	?
+			      C     blue	dw	?
+			      C VGACOLOR ends
+			      C 
+			      C 
+			      C 
+			      C 
+ 0338			      C VDCONTX	struc
+			      C 	;
+			      C 	;	--- function pointers --- 
+			      C 	;
+ 0000  0000		      C 	Create			dw	?	; Create function pointer
+ 0002  0000		      C 	Destroy			dw	?	; Destroy function
+ 0004  0000		      C 	Clear			dw	?	;
+ 0006  0000		      C 	getNumPages		dw	?	;
+ 0008  0000		      C     setActivePage	dw	?	;  
+ 000A  0000		      C     setVisiblePage	dw	?	;
+ 000C  0000		      C     pixel			dw	?	;	(int16 x, int16 y, int16 color);
+ 000E  0000		      C     fillRect		dw	?	;  (int16 x, int16 y, int16 width, int16 height, int16 color);
+ 0010  0000		      C 	drawRect		dw	?
+ 0012  0000		      C 	drawChar		dw	?	;	
+ 0014  0000		      C 	drawLine		dw	?	;
+ 0016  0000		      C 	drawString		dw	?	;
+ 0018  0000		      C 	createWindow	dw	?	;
+ 001A  0000		      C 	createbutton	dw	?	;
+			      C 
+ 001C   0001 [		      C 	vbi			VBEINFO <>
+	 56 45 53 41
+	] 0000 00000000
+        0004 [
+	 00
+	] 00000000 0000
+        0000 00000000
+        00000000 00000000
+        00DE [
+	 00
+	]
+        0100 [
+	 00
+	]
+ 021C  0000 00 00 0000	      C 	vmi 		MODEINFO <>
+        0000 0000 0000
+        00000000 0000
+        0000 0000 00 00
+        00 00 00 00 00 00
+        00 00 00 00 00 00
+        00 00 00 00
+        00000000 00000000
+        0000
+        00CE [
+	 00
+	]
+ 031C  0000		      C 	origMode		dw	?	;
+ 031E  0000		      C 	currentMode		dw	?	;
+ 0320  0000		      C 	currentBank		dw	?	;
+ 0322  0000		      C 	banksPerPage	dw	?	;
+ 0324  0000		      C 	activePage		dw	?	;
+ 0326  0000		      C 	activePageOffset dw ?	;
+ 0328  0000		      C 	visiblePage		dw	?	;
+ 032A  0000		      C 	error			dw	?	;
+ 032C  0000		      C 	maxx			dw	?	;
+ 032E  0000		      C 	maxy			dw	?	;
+ 0330  0000		      C 	vwidth			dw	?	;
+ 0332  0000		      C 	vheight			dw	?	;
+ 0334  0000		      C 	fontSeg			dw	?
+ 0336  0000		      C 	fontOff			dw	?
+			      C VDCONTX ends
+			      C 
+			      C 
+			      C 
+ 0014			      C GWIND	struc
+ 0000  0000		      C 	xorg	dw	?			; x start
+ 0002  0000		      C 	yorg	dw	?			; ystart
+ 0004  0000		      C 	xend	dw	?
+ 0006  0000		      C 	yend	dw	?
+ 0008  0000		      C 	xsiz	dw	?			; size x
+ 000A  0000		      C 	ysiz	dw	?			; size y
+ 000C  0000		      C 	bcolor	dw	?			; background window color
+ 000E  0000		      C 	ccolor	dw	?			; character color
+ 0010  0000		      C 	currx	dw	?			; current character position
+ 0012  0000		      C 	curry	dw	?
+			      C GWIND	ends
+			      C 
+				  
+ 0000				_Text SEGMENT PUBLIC USE16
+				  assume CS:_Text, DS:_Text
+
+				public printChar
+				public printHexNibble
+				public printHexByte
+				public printHexDWord
+				public printHexWord
+				public println
+				public print_size
+				public showZero
+				public init_vid
+
+				.286
+				 extrn	 VCCreate:near					   
+ 0000 42 6F 6F 74 20 53		hellos		db	"Boot Shooter",0dh,0ah,0
+        68 6F 6F 74 65 72
+        0D 0A 00
+
+				public vidcontext 
+ 000F 0000			vidcontext	dw	0
+
+				public desktop
+				public gwDrives
+				public gwSector
+				public gwCommand
+
+ 0011 0000 0000 0000 0000	desktop	GWIND	<>
+        0000 0000 0000
+        0000 0000 0000
+ 0025 0000 0000 0000 0000	gwDrives	GWIND <>
+        0000 0000 0000
+        0000 0000 0000
+ 0039 0000 0000 0000 0000	gwCommand	GWIND <>
+        0000 0000 0000
+        0000 0000 0000
+ 004D 0000 0000 0000 0000	gwSector	GWIND <>
+        0000 0000 0000
+        0000 0000 0000
+ 0061 0000 0000 0000 0000	gbCreatePart GWIND <>
+        0000 0000 0000
+        0000 0000 0000
+ 0075 0000 0000 0000 0000	gbBoot GWIND <>
+        0000 0000 0000
+        0000 0000 0000
+ 0089 0000 0000 0000 0000	gbQuit GWIND <>
+        0000 0000 0000
+        0000 0000 0000
+ 009D 0000 0000 0000 0000	gbView GWIND <>
+        0000 0000 0000
+        0000 0000 0000
+ 00B1 0000 0000 0000 0000	gbZap GWIND <>
+        0000 0000 0000
+        0000 0000 0000
+
+
+				public	activeWindow
+ 00C5 0000			activeWindow dw ?
+
+
+ 00C7 0000 0000 0000 0000	gwtest2	GWIND	<>
+        0000 0000 0000
+        0000 0000 0000
+
+
+
+ 00DB 0D 0A			sCommands	db	0dh,0ah
+ 00DD  20 27 73 64 20 30				db	" 'sd 0'      = Show Drive - drive  ",0dh,0ah
+        27 20 20 20 20 20
+        20 3D 20 53 68 6F
+        77 20 44 72 69 76
+        65 20 2D 20 64 72
+        69 76 65 20 20 0D
+        0A
+ 0102  20 27 73 73 20 30				db	" 'ss 0 123 ' = Show Sector - drive, lsector",0dh,0ah
+        20 31 32 33 20 27
+        20 3D 20 53 68 6F
+        77 20 53 65 63 74
+        6F 72 20 2D 20 64
+        72 69 76 65 2C 20
+        6C 73 65 63 74 6F
+        72 0D 0A
+ 012F  20 27 62 20 30 20				db	" 'b 0 0'     = Boot partition - drive partition",0dh,0ah
+        30 27 20 20 20 20
+        20 3D 20 42 6F 6F
+        74 20 70 61 72 74
+        69 74 69 6F 6E 20
+        2D 20 64 72 69 76
+        65 20 70 61 72 74
+        69 74 69 6F 6E 0D
+        0A
+ 0160  20 27 63 70 20 30				db  " 'cp 0 23 6' = Create Partition - drive,size,type",0dh,0ah
+        20 32 33 20 36 27
+        20 3D 20 43 72 65
+        61 74 65 20 50 61
+        72 74 69 74 69 6F
+        6E 20 2D 20 64 72
+        69 76 65 2C 73 69
+        7A 65 2C 74 79 70
+        65 0D 0A
+ 0193  20 27 64 70 20 30				db	" 'dp 0 1'    = Delete Partition - drive, partition",0dh,0ah
+        20 31 27 20 20 20
+        20 3D 20 44 65 6C
+        65 74 65 20 50 61
+        72 74 69 74 69 6F
+        6E 20 2D 20 64 72
+        69 76 65 2C 20 70
+        61 72 74 69 74 69
+        6F 6E 0D 0A
+ 01C7  20 27 7A 64 20 30				db	" 'zd 0'      = Zap Drive - drive",0dh,0ah
+        27 20 20 20 20 20
+        20 3D 20 5A 61 70
+        20 44 72 69 76 65
+        20 2D 20 64 72 69
+        76 65 0D 0A
+ 01E9  20 27 7A 70 20 30				db  " 'zp 0 1'    = Zap Partition - drive , partition ",0
+        20 31 27 20 20 20
+        20 3D 20 5A 61 70
+        20 50 61 72 74 69
+        74 69 6F 6E 20 2D
+        20 64 72 69 76 65
+        20 2C 20 70 61 72
+        74 69 74 69 6F 6E
+        20 00
+
+ 021B 0001			activepage	dw	1
+ 021D   0004 [			lbuff	db 4 dup (?)
+	 00
+	]
+
+				;*****************************************************************************
+				;
+				; ini_vid
+				;
+				;*****************************************************************************
+
+ 0221				init_vid:
+ 0221  06				push	es
+ 0222  B8 0105				mov		ax,105h
+				;
+				;   --- creae a video context for our request mode ---
+				;
+ 0225  06				push	es
+ 0226  E8 0000 E			call	VCCreate  ; returns VDCONTX ptr in bx
+ 0229  07				pop		es
+
+ 022A  0B DB				or		bx,bx
+ 022C  75 03 E9 01DF			jz		novid
+ 0231  89 1E 000F R			mov		vidcontext,bx
+				;
+				;	--- Mode is set, set in a palette --- 
+				;
+					assume bx:ptr VDCONTX
+				   	;call	 setPalette332
+
+ 0235  A1 021B R			mov		ax,activepage
+ 0238  40				inc		ax
+ 0239  A3 021B R			mov		activepage,ax
+ 023C  FF 57 08				call	[bx].setActivePage
+
+ 023F  B8 0007			 	mov		ax,7
+ 0242  FF 57 04				call	[bx].clear
+
+ 0245  BE 0011 R			mov		si,offset desktop
+
+					assume si:ptr GWIND
+ 0248  C7 04 0003			mov		[si].xorg,3
+ 024C  C7 44 02 0003			mov		[si].yorg,3
+ 0251  8B 87 0330			mov		ax,[bx].vwidth
+ 0255  83 E8 03				sub		ax,3
+ 0258  89 44 08				mov		[si].xsiz,ax
+ 025B  8B 87 0332			mov		ax,[bx].vheight
+ 025F  83 E8 08				sub		ax,8
+ 0262  89 44 0A				mov		[si].ysiz,ax
+ 0265  C7 44 0C 0001			mov		[si].bcolor,1
+ 026A  C7 44 0E 000E			mov		[si].ccolor,14
+ 026F  FF 57 18				call	[bx].createWindow
+ 0272  89 36 00C5 R			mov		word ptr activeWindow,si
+
+ 0276  B8 000E				mov		ax,14
+ 0279  8B 8F 032C			mov		cx,[bx].maxx
+ 027D  D1 E9				shr		cx,1
+ 027F  83 E9 46				sub		cx,70
+ 0282  BA 0018				mov		dx,24
+ 0285  BF 0001				mov		di,1
+ 0288  BE 0000 R			mov		si,offset hellos
+ 028B  FF 57 16				call 	[bx].drawString
+
+ 028E  B8 000E				mov		ax,14
+ 0291  B9 0028				mov		cx,40
+ 0294  8B 97 032E			mov		dx,[bx].maxy
+ 0298  81 EA 00E8			sub		dx,232
+ 029C  BF 0001				mov		di,1
+ 029F  BE 00DB R			mov		si,offset sCommands
+ 02A2  FF 57 16				call 	[bx].drawString
+				;
+				;   make some buttons ...
+				;
+				; create partition button
+ 02A5  BE 0061 R			mov		si,offset gbCreatePart
+
+					assume si:ptr GWIND
+ 02A8  B8 0014				mov		ax,20
+ 02AB  89 04				mov		[si].xorg,ax
+ 02AD  83 C0 0F				add		ax,15
+ 02B0  89 44 10				mov		[si].currx,ax
+
+ 02B3  8B 87 032E			mov		ax,[bx].maxy
+ 02B7  83 E8 32				sub		ax,50
+ 02BA  89 44 02				mov		[si].yorg,ax
+ 02BD  83 C0 05				add		ax,5
+ 02C0  89 44 12				mov		[si].curry,ax
+ 02C3  B8 0064				mov		ax,100
+ 02C6  89 44 08				mov		[si].xsiz,ax
+ 02C9  B8 0018				mov		ax,24
+ 02CC  89 44 0A				mov		[si].ysiz,ax
+ 02CF  C7 44 0C 0001			mov		[si].bcolor,1
+ 02D4  C7 44 0E 000E			mov		[si].ccolor,14
+ 02D9  89 36 00C5 R			mov		word ptr activeWindow,si
+
+ 02DD  FF 57 1A				call	[bx].createButton
+ 02E0  B9 0000				mov		cx,0
+ 02E3  BA 0000				mov		dx,0
+ 02E6  BE 0412 R			mov		si,offset creats
+ 02E9  FF 57 16			 	call 	[bx].drawString
+				;	
+				;  --- boot button
+				;
+ 02EC  BE 0075 R			mov		si,offset gbBoot
+
+					assume si:ptr GWIND
+ 02EF  B8 0096				mov		ax,150
+ 02F2  89 04				mov		[si].xorg,ax
+ 02F4  83 C0 0F				add		ax,15
+ 02F7  89 44 10				mov		[si].currx,ax
+
+ 02FA  8B 87 032E			mov		ax,[bx].maxy
+ 02FE  83 E8 32				sub		ax,50
+ 0301  89 44 02				mov		[si].yorg,ax
+ 0304  83 C0 05				add		ax,5
+ 0307  89 44 12				mov		[si].curry,ax
+
+ 030A  B8 0064				mov		ax,100
+ 030D  89 44 08				mov		[si].xsiz,ax
+ 0310  B8 0018				mov		ax,24
+ 0313  89 44 0A				mov		[si].ysiz,ax
+ 0316  C7 44 0C 0001			mov		[si].bcolor,1
+ 031B  C7 44 0E 000E			mov		[si].ccolor,14
+ 0320  89 36 00C5 R			mov		word ptr activeWindow,si
+
+ 0324  FF 57 1A				call	[bx].createButton
+ 0327  B9 0000				mov		cx,0
+ 032A  BA 0000				mov		dx,0
+ 032D  BE 0419 R			mov		si,offset boots
+ 0330  FF 57 16				call 	[bx].drawString
+				;
+				;	--- quit button 
+				;
+
+ 0333  BE 0089 R			mov		si,offset gbQuit
+
+					assume si:ptr GWIND
+ 0336  B8 0118				mov		ax,280
+ 0339  89 04				mov		[si].xorg,ax
+ 033B  83 C0 0F				add		ax,15
+ 033E  89 44 10				mov		[si].currx,ax
+
+ 0341  8B 87 032E			mov		ax,[bx].maxy
+ 0345  83 E8 32				sub		ax,50
+ 0348  89 44 02				mov		[si].yorg,ax
+ 034B  83 C0 05				add		ax,5
+ 034E  89 44 12				mov		[si].curry,ax
+
+ 0351  B8 0064				mov		ax,100
+ 0354  89 44 08				mov		[si].xsiz,ax
+ 0357  B8 0018				mov		ax,24
+ 035A  89 44 0A				mov		[si].ysiz,ax
+ 035D  C7 44 0C 0001			mov		[si].bcolor,1
+ 0362  C7 44 0E 000E			mov		[si].ccolor,14
+ 0367  89 36 00C5 R			mov		word ptr activeWindow,si
+
+ 036B  FF 57 1A				call	[bx].createButton
+ 036E  B9 0000				mov		cx,0
+ 0371  BA 0000				mov		dx,0
+ 0374  BE 041F R			mov		si,offset quits
+ 0377  FF 57 16				call 	[bx].drawString
+				;
+				;   --- view button
+				;
+ 037A  BE 009D R			mov		si,offset gbView
+
+					assume si:ptr GWIND
+ 037D  B8 019A				mov		ax,410
+ 0380  89 04				mov		[si].xorg,ax
+ 0382  83 C0 0F				add		ax,15
+ 0385  89 44 10				mov		[si].currx,ax
+
+ 0388  8B 87 032E			mov		ax,[bx].maxy
+ 038C  83 E8 32				sub		ax,50
+ 038F  89 44 02				mov		[si].yorg,ax
+ 0392  83 C0 05				add		ax,5
+ 0395  89 44 12				mov		[si].curry,ax
+
+ 0398  B8 0064				mov		ax,100
+ 039B  89 44 08				mov		[si].xsiz,ax
+ 039E  B8 0018				mov		ax,24
+ 03A1  89 44 0A				mov		[si].ysiz,ax
+ 03A4  C7 44 0C 0001			mov		[si].bcolor,1
+ 03A9  C7 44 0E 000E			mov		[si].ccolor,14
+ 03AE  89 36 00C5 R			mov		word ptr activeWindow,si
+
+ 03B2  FF 57 1A				call	[bx].createButton
+ 03B5  B9 0000				mov		cx,0
+ 03B8  BA 0000				mov		dx,0
+ 03BB  BE 0424 R			mov		si,offset views
+ 03BE  FF 57 16				call 	[bx].drawString
+
+				;
+				;   --- zap button
+				;
+ 03C1  BE 00B1 R			mov		si,offset gbZap
+
+					assume si:ptr GWIND
+ 03C4  B8 021C				mov		ax,540
+ 03C7  89 04				mov		[si].xorg,ax
+ 03C9  83 C0 0F				add		ax,15
+ 03CC  89 44 10				mov		[si].currx,ax
+
+ 03CF  8B 87 032E			mov		ax,[bx].maxy
+ 03D3  83 E8 32				sub		ax,50
+ 03D6  89 44 02				mov		[si].yorg,ax
+ 03D9  83 C0 05				add		ax,5
+ 03DC  89 44 12				mov		[si].curry,ax
+
+ 03DF  B8 0064				mov		ax,100
+ 03E2  89 44 08				mov		[si].xsiz,ax
+ 03E5  B8 0018				mov		ax,24
+ 03E8  89 44 0A				mov		[si].ysiz,ax
+ 03EB  C7 44 0C 0001			mov		[si].bcolor,1
+ 03F0  C7 44 0E 000E			mov		[si].ccolor,14
+ 03F5  89 36 00C5 R			mov		word ptr activeWindow,si
+
+ 03F9  FF 57 1A				call	[bx].createButton
+ 03FC  B9 0000				mov		cx,0
+ 03FF  BA 0000				mov		dx,0
+ 0402  BE 0429 R			mov		si,offset zaps
+ 0405  FF 57 16				call 	[bx].drawString
+				;
+				;  --- turn mouse on ...
+				;
+ 0408  B4 C2				mov	ah,0c2h
+ 040A  B0 00				mov	al,0
+ 040C  B7 01				mov	bh,1
+ 040E  CD 15				int 15h
+
+
+ 0410				novid:
+ 0410  07				pop		es
+ 0411  C3				ret
+ 0412 43 72 65 61 74 65		creats db "Create",0
+        00
+ 0419 42 6F 6F 74 20 00		boots  db "Boot ",0
+ 041F 51 75 69 74 00		quits	db "Quit",0
+ 0424 56 69 65 77 00		views	db "View",0
+ 0429 5A 61 70 00		zaps	db	"Zap",0
+				;*****************************************************************************
+				;  kill_vid
+				;
+				;
+				;
+				;*****************************************************************************
+
+				public kill_vid
+ 042D				kill_vid:
+ 042D  53				push	bx
+ 042E  8B 1E 000F R			mov		bx,vidcontext
+					assume bx:ptr VDCONTX
+
+ 0432  FF 57 02				call	[bx].Destroy
+ 0435  5B				pop		bx
+ 0436  C3				ret
+
+
+
+				;*****************************************************************************
+				; init_command
+				;
+				;
+				;*****************************************************************************
+				public init_command
+ 0437				init_command:
+ 0437  50					push	ax
+ 0438  53					push	bx
+ 0439  56					push	si
+
+ 043A  8B 1E 000F R				mov		bx,word ptr vidcontext	
+						assume  bx:ptr VDCONTX
+
+ 043E  BE 0039 R				mov		si,offset gwCommand
+						assume  si:ptr GWIND
+						
+ 0441  C7 04 0014				mov		[si].xorg,20
+ 0445  8B 87 032E				mov		ax,[bx].maxy
+ 0449  83 E8 64					sub		ax,100
+ 044C  89 44 02					mov		[si].yorg,ax
+ 044F  83 C0 05					add		ax,5
+ 0452  89 44 12					mov		[si].curry,ax
+ 0455  8B 87 032C				mov		ax,[bx].maxx
+ 0459  83 E8 28					sub		ax,40
+ 045C  89 44 08					mov		[si].xsiz,ax
+ 045F  C7 44 0A 0028				mov		[si].ysiz,40
+ 0464  C7 44 0C 0050				mov		[si].bcolor,80
+ 0469  C7 44 0E 0000				mov		[si].ccolor,0
+ 046E  C7 44 10 0019				mov		[si].currx,25
+
+ 0473  FF 57 18					call	[bx].createWindow
+ 0476  89 36 00C5 R				mov		word ptr activeWindow,si
+
+ 047A  5E					pop		si
+ 047B  5B					pop		bx
+ 047C  58					pop		ax
+ 047D  C3					ret
+
+
+
+
+				;*****************************************************************************
+				; init_sector
+				;
+				;
+				;*****************************************************************************
+				public init_sector
+ 047E				init_sector:
+ 047E  50					push	ax
+ 047F  53					push	bx
+ 0480  56					push	si
+
+ 0481  8B 1E 000F R				mov		bx,word ptr vidcontext	
+						assume  bx:ptr VDCONTX
+
+ 0485  BE 004D R				mov		si,offset gwSector
+						assume  si:ptr GWIND
+ 0488  8B 87 0330				mov		ax,[bx].vwidth
+ 048C  D1 E8					shr		ax,1
+ 048E  83 E8 1E					sub		ax,30
+							
+ 0491  89 04					mov		[si].xorg,ax
+ 0493  83 C0 04					add		ax,4
+ 0496  89 44 10					mov		[si].currx,ax
+
+ 0499  8B 87 0330				mov		ax,[bx].vwidth
+ 049D  D1 E8					shr		ax,1
+ 049F  83 E8 14					sub		ax,20
+ 04A2  89 44 08					mov		[si].xsiz,ax
+						
+ 04A5  C7 44 02 003C				mov		[si].yorg,60
+					
+ 04AA  C7 44 12 0041				mov		[si].curry,65
+ 04AF  C7 44 0A 0208				mov		[si].ysiz,520
+
+ 04B4  C7 44 0C 0050				mov		[si].bcolor,80
+ 04B9  C7 44 0E 0000				mov		[si].ccolor,0
+
+ 04BE  FF 57 18					call	[bx].createWindow
+ 04C1  89 36 00C5 R				mov		word ptr activeWindow,si
+
+ 04C5  5E					pop		si
+ 04C6  5B					pop		bx
+ 04C7  58					pop		ax
+ 04C8  C3					ret
+
+				;*****************************************************************************
+				;   setPalette332 - Create a video pallet
+				;       
+				;		output: nothing - returns video back to origional mode
+				;*****************************************************************************
+
+ 04C9				setPalette332:
+ 04C9  50				push	ax
+ 04CA  53			   	push	bx
+ 04CB  51				push	cx
+ 04CC  57				push	di
+ 04CD  8B 1E 000F R			mov		bx,vidcontext
+					assume bx:ptr VDCONTX
+
+ 04D1  33 C0				xor		ax,ax	; red		
+ 04D3  8B D8				mov		bx,ax	; green
+ 04D5  8B C8				mov		cx,ax	; blue
+ 04D7  BF 051D R			mov		di,offset colorbuff
+				   assume di:ptr VGACOLOR
+ 04DA				rloop:
+ 04DA  83 F8 40				cmp		ax,64
+ 04DD  7F 2D				jg		rdone
+ 04DF  BB 0000				mov		bx,0
+ 04E2  B9 0000				mov		cx,0
+ 04E5				gloop:
+ 04E5  83 FB 40				cmp		bx,64
+ 04E8  7F 1D				jg		gdone
+ 04EA  B9 0000				mov		cx,0
+ 04ED				bloop:
+ 04ED  83 F9 40				cmp		cx,64
+ 04F0  7F 10				jg		bdone
+
+ 04F2  89 05				mov		[di].red,ax
+ 04F4  89 5D 02				mov		[di].green,bx
+ 04F7  89 4D 04				mov		[di].blue,cx
+					
+ 04FA  83 C7 06				add		di,sizeof VGACOLOR
+ 04FD  83 C1 15				add		cx,21
+ 0500  EB EB				jmp		bloop	
+
+ 0502				bdone:
+ 0502  83 C3 09				add		bx,9
+ 0505  EB DE				jmp		gloop
+
+ 0507				gdone:
+ 0507  83 C0 09				add		ax,9
+ 050A  EB CE				jmp		rloop
+ 050C				rdone:
+ 050C  BF 051D R			mov		di,offset colorbuff
+ 050F  B9 0100				mov		cx,256
+ 0512  BB 0000				mov		bx,0
+ 0515  E8 0000 E			call	vgaSetPalette
+				;
+				;    vgaSetPalette(0, 256, p);
+				;}
+
+ 0518  5F				pop		di
+ 0519  59				pop		cx
+ 051A  5B				pop		bx
+ 051B  58				pop		ax
+ 051C  C3				ret
+																     
+ 051D   0100 [			colorbuff VGACOLOR 256 dup (<?>)
+	 0000 0000 0000
+	]
+				assume di:nothing
+ 0B1D				showZero:
+ 0B1D  51				push	cx
+ 0B1E  B1 00				mov		cl,0h
+ 0B20  88 0E 0C73 R			mov		bSkipZero,cl
+ 0B24  59				pop		cx
+ 0B25  C3				ret
+
+				;**********************************************************
+				;  printChar al = char
+				;
+				;**********************************************************
+ 0B26				 printChar:
+ 0B26  50			 	push	ax
+ 0B27  53				push	bx
+
+ 0B28  8B 1E 000F R		 	mov		bx,vidcontext
+					assume bx:ptr VDCONTX
+ 0B2C  0B DB				or		bx,bx
+ 0B2E  74 16				jz		bioschar
+					
+ 0B30  51				push	cx
+ 0B31  52				push	dx
+ 0B32  57				push	di
+					
+ 0B33  B9 0000				mov		cx,0
+ 0B36  8B D1				mov		dx,cx
+ 0B38  B4 01				mov		ah,1
+ 0B3A  BF 0050				mov		di,80
+ 0B3D  FF 57 12				call	[bx].drawChar
+					
+ 0B40  5F				pop		di
+ 0B41  5A				pop		dx
+ 0B42  59				pop		cx
+ 0B43  5B				pop		bx
+ 0B44  58				pop		ax
+ 0B45  C3				ret
+
+ 0B46				bioschar:
+ 0B46  B4 0E			 	mov		ah,0eh
+ 0B48  CD 10				int		10h
+ 0B4A  5B				pop		bx
+ 0B4B  58				pop		ax
+ 0B4C  C3				ret
+				assume bx:nothing
+				;**********************************************************
+				; printHexNibble al contains vale
+				;
+ 0B4D				printHexNibble:
+ 0B4D  50				push	ax
+ 0B4E  24 0F				and		al,0fh
+ 0B50  3C 09				cmp		al,9
+ 0B52  7F 17				jg		alphab
+ 0B54  0A C0				or		al,al
+ 0B56  75 07				jnz		showval
+ 0B58  80 3E 0C73 R 55			cmp		bSkipZero,55h
+ 0B5D  74 16				jz		phnout
+ 0B5F				showval:
+ 0B5F  C6 06 0C73 R 00			mov		bSkipZero,0
+ 0B64  04 30				add		al,30h
+ 0B66  E8 FFBD				call	printChar
+ 0B69  EB 0A				jmp		phnout
+ 0B6B				alphab:
+ 0B6B  C6 06 0C73 R 00			mov		bSkipZero,0
+ 0B70  04 37				add		al,37h
+ 0B72  E8 FFB1				call	printChar
+ 0B75				phnout:
+ 0B75  58				pop	ax
+ 0B76  C3				ret
+				;**********************************************************
+				; printHexByte al contains byte
+				;
+ 0B77				printHexByte:
+ 0B77  53				push	bx
+ 0B78  8B D8				mov		bx,ax
+ 0B7A  C0 E8 04				shr		al,4
+ 0B7D  E8 FFCD				call	printHexNibble
+ 0B80  8A C3				mov		al,bl
+ 0B82  E8 FFC8				call	printHexNibble
+ 0B85  5B				pop		bx
+ 0B86  C3				ret
+					
+					
+ 0B87				printHexWord:
+ 0B87  53				push	bx
+ 0B88  50				push	ax
+ 0B89  C1 E8 08				shr		ax,8
+ 0B8C  E8 FFE8				call	printHexByte
+ 0B8F  58				pop		ax
+ 0B90  E8 FFE4				call	printHexByte
+ 0B93  5B				pop		bx
+ 0B94  C3				ret
+
+ 0B95				printHexDWord:
+ 0B95  53				push	bx
+				.386
+ 0B96  66| 50				push	eax
+ 0B98  66| C1 E8 10			shr		eax,16
+				.286
+ 0B9C  E8 FFE8				call	printHexWord
+				.386
+ 0B9F  66| 58				pop		eax
+				.286
+ 0BA1  E8 FFE3				call	printHexWord
+ 0BA4  5B				pop		bx
+ 0BA5  C3				ret
+
+				;**********************************************************
+				;  println ds:si -> null terminated string
+				;
+				;**********************************************************
+ 0BA6				println:
+ 0BA6  50				push	ax
+ 0BA7  1E				push	ds
+ 0BA8  56				push	si
+ 0BA9  51				push	cx
+ 0BAA  52				push	dx
+ 0BAB  B9 0000				mov		cx,0
+ 0BAE  BA 0000				mov		dx,0
+ 0BB1				charloop:
+ 0BB1  AC				lodsb
+ 0BB2  0A C0				or		al,al
+ 0BB4  74 05				jz		chardone
+ 0BB6  E8 FF6D				call	printChar
+ 0BB9  EB F6				jmp		charloop
+ 0BBB				chardone:
+ 0BBB  5A				pop	dx
+ 0BBC  59				pop	cx
+ 0BBD  5E			 	pop	si
+ 0BBE  1F				pop	ds
+ 0BBF  58				pop	ax
+ 0BC0  C3				ret
+
+				;******************************************************************************
+				;  print_size EAX = value cx = number of digits
+				;
+				; 	simple loop starts to divide the value by 1,000,000,000	, prints the result 
+				; , divides the divison by 10 and loops back to work the remainder.
+				;******************************************************************************
+ 0BC1				print_size:
+
+ 0BC1  FA				cli
+				.386
+ 0BC2  66| 50				push	eax
+					
+ 0BC4  66| 52				push	edx
+ 0BC6  66| 53				push	ebx
+				;.286
+ 0BC8  51				push 	cx
+ 0BC9  57				push	di
+					;mov		cx,10
+ 0BCA  BF 0C74 R			mov		di, offset sNumBuff
+				;.386
+ 0BCD  66| 33 DB			xor		ebx,ebx
+ 0BD0  66| BB 3B9ACA00			mov		ebx,1000000000
+ 0BD6				ps_loop:
+ 0BD6  66| 33 D2			xor		edx,edx
+ 0BD9  66| F7 F3			div	   	ebx				   	; divide by power of 10
+ 0BDC  66| 0B C0			or		eax,eax
+ 0BDF  75 06				jnz		not0			   	; check for leading "0"
+ 0BE1  81 FF 0C74 R			cmp 	di,	offset sNumBuff
+ 0BE5  74 05				jz		skip0
+
+ 0BE7				not0:							
+ 0BE7  04 30				add		al,30h				; convert to ascii ( simple numeric conversion)
+ 0BE9  88 05				mov		[di],al				; save ascii in buffer
+ 0BEB  47				inc 	di
+ 0BEC				skip0:
+				.386
+ 0BEC  66| 52				push	edx					; hold on to the remainder while we move down to
+ 0BEE  66| BA 00000000			mov		edx,0				; the next power of 10
+ 0BF4  66| 8B C3			mov		eax,ebx
+ 0BF7  66| BB 0000000A			mov		ebx,10
+ 0BFD  66| F7 F3			div		ebx
+ 0C00  66| 8B D8			mov		ebx,eax
+ 0C03  66| 58				pop		eax
+ 0C05  66| 83 FB 00			cmp		ebx,0
+				;.286	
+ 0C09  E0 CB				loopne	ps_loop
+												; all done add the null terminator
+ 0C0B  B1 00				mov		cl,0
+ 0C0D  88 0D				mov		[di],cl
+ 0C0F  BE 0C74 R			mov		si,offset sNumBuff	; and display the number
+ 0C12  FB				sti
+ 0C13  E8 FF90				call	println
+					 
+ 0C16  5F				pop		di
+ 0C17  59				pop		cx
+				;.386
+ 0C18  66| 5B				pop		ebx
+ 0C1A  66| 5A				pop		edx
+ 0C1C  66| 58				pop		eax
+				.286	
+ 0C1E  C3				ret
+
+				;******************************************************************************
+				;*  display buffer es:si -> buffer
+				;*
+				;*
+				;******************************************************************************
+				public displayBuffer
+ 0C1F				displayBuffer:
+ 0C1F  50					push	ax
+ 0C20  51					push	cx
+ 0C21  53					push	bx
+ 0C22  06					push	es
+						;//push	si
+ 0C23  B3 10					mov		bl,16
+ 0C25				nextline:
+ 0C25  B9 0010					mov		cx,16
+ 0C28  56					push	si
+ 0C29				dbloop:
+ 0C29  AC					lodsb
+
+ 0C2A  E8 FF4A					call  	printHexByte				
+ 0C2D  B0 20					mov		al,' '
+ 0C2F  E8 FEF4					call	printChar
+ 0C32  E2 F5					loop	dbloop
+ 0C34  5E					pop		si
+ 0C35  B0 20					mov		al,' '
+ 0C37  E8 FEEC					call	printChar
+ 0C3A  B0 20					mov		al,' '
+ 0C3C  E8 FEE7					call	printChar
+ 0C3F  B0 20					mov		al,' '
+ 0C41  E8 FEE2					call	printChar
+ 0C44  B0 20					mov		al,' '
+ 0C46  E8 FEDD					call	printChar
+						
+ 0C49  B9 0010					mov		cx,16
+ 0C4C				dbloop1:
+ 0C4C  AC					lodsb
+ 0C4D  3C 20					cmp		al,20h
+ 0C4F  73 04					jnb		cok1
+ 0C51  B0 2E					mov		al,'.'
+ 0C53  EB 06					jmp		cok2
+ 0C55				cok1:
+ 0C55  3C 7F					cmp		al,7fh
+ 0C57  72 02					jb		cok2
+ 0C59  B0 2E					mov		al,'.'
+ 0C5B				cok2:				
+ 0C5B  E8 FEC8					call  	printChar				
+ 0C5E  E2 EC					loop	dbloop1
+ 0C60  B0 0D					mov		al,0dh
+ 0C62  E8 FEC1					call	printChar
+ 0C65  B0 0A					mov		al,0ah
+ 0C67  E8 FEBC					call	printChar
+						
+ 0C6A  FE CB					dec		bl
+ 0C6C  75 B7					jnz		nextline
+
+						;//pop	si
+ 0C6E  07					pop	es
+ 0C6F  5B					pop	bx
+ 0C70  59					pop	cx
+ 0C71  58					pop	ax
+ 0C72  C3					ret
+
+				public	bSkipZero
+
+ 0C73 00			bSkipZero		db	0				; flag used to skip leading 0's
+
+ 0C74   0010 [			sNumBuff	db 16 dup (0)
+	 00
+	]
+				public GetChar
+
+ 0C84				GetChar:
+ 0C84  B4 00					mov		ah,0			; Get key entry
+ 0C86  CD 16					int		16h
+ 0C88  C3					ret
+				;******************************************************************************
+				;*  GetLine - loops reading the keyboard until a cr is entered
+				;*			returns si > line bufer, cx=count
+				;*
+				;******************************************************************************
+ 0C89 47 65 74 4C 69 6E		sgline	db	"GetLine",0dh,0ah,0
+        65 0D 0A 00
+				public GetLine
+ 0C93				GetLine:
+ 0C93  50					push	ax
+ 0C94  57					push	di
+ 0C95  52					push	dx
+ 0C96  53					push	bx
+
+ 0C97  8B FB					mov		di,bx
+ 0C99  33 DB					xor		bx,bx
+ 0C9B  8B D3					mov		dx,bx
+									 
+ 0C9D				next_char:
+ 0C9D  B4 00					mov		ah,0			; Get key entry
+ 0C9F  CD 16					int		16h
+ 0CA1  3C 0D					cmp		al,0dh			; check end of line
+ 0CA3  74 1E					jz		line_done
+ 0CA5  3C 08					cmp		al,8			; check delete
+ 0CA7  74 18					jz		del_char
+ 0CA9  3C 7F					cmp		al,7fh
+ 0CAB  7D 12					jge		bad_char			; check out of range
+ 0CAD  3C 20					cmp		al,20h
+ 0CAF  72 0E					jb		bad_char
+						
+ 0CB1  42					inc		dx
+ 0CB2  3B D1					cmp		dx,cx
+ 0CB4  7C 03					jl		ok_char
+ 0CB6  49					dec		cx
+ 0CB7  EB 06					jmp		bad_char	  
+ 0CB9				ok_char:
+ 0CB9  AA					stosb					; store it
+ 0CBA  E8 FE69					call	printChar
+ 0CBD  EB DE					jmp		next_char
+
+ 0CBF				bad_char:
+ 0CBF  EB DC					jmp		next_char
+
+ 0CC1				del_char:
+
+ 0CC1  EB DA					jmp		next_char
+ 0CC3				line_done:
+ 0CC3  B0 00					mov		al,0
+ 0CC5  AA					stosb	
+						
+ 0CC6  5B					pop		bx
+ 0CC7  5A					pop		dx	
+ 0CC8  5F					pop		di
+ 0CC9  58					pop		ax
+ 0CCA  C3					ret
+
+				;******************************************************************************
+				;*  ascii2hex - 
+				;*                  si -> input buffer
+				;*			returns EDX:EAX = value
+				;*
+				;******************************************************************************
+ 0CCB 00000000			rsltbuffl	dd	 0
+ 0CCF 00000000			rsltbuffh	dd	0
+				public ascii2hex
+
+ 0CD3				ascii2hex:			; si-> ascii string returns hex value
+ 0CD3  FA					cli
+				.386
+ 0CD4  66| 53					push	ebx
+ 0CD6  66| 33 C0				xor		eax,eax
+ 0CD9  66| A3 0CCB R				mov		rsltbuffl,eax
+ 0CDD  66| A3 0CCF R				mov		rsltbuffh,eax
+				.286
+ 0CE1  E8 0065					call	getStringSize	; returns size in cx
+ 0CE4				convloop:
+ 0CE4  51					push	cx				; save size while we get the div
+ 0CE5  49					dec		cx
+				.386		
+						
+ 0CE6  66| B8 00000001				mov		eax,1
+				.286
+ 0CEC  0B C9					or		cx,cx
+ 0CEE  74 0B					jz		mloopdone
+				.386					
+ 0CF0				dlp:
+ 0CF0  66| BB 0000000A				mov		ebx,10			; get the multipler
+ 0CF6  66| F7 E3				mul		ebx
+				.286
+ 0CF9  E2 F5					loop	dlp
+ 0CFB				mloopdone:
+ 0CFB  59					pop		cx
+				.386		
+ 0CFC  66| 52					push	edx
+ 0CFE  66| 50					push	eax						; edx:eax has multiplier		
+
+ 0D00  66| 33 C0				xor		eax,eax
+ 0D03  66| 8B D0				mov		edx,eax
+
+				.286
+ 0D06  AC					lodsb
+ 0D07  2C 30					sub		al,30h				; convert the character
+ 0D09  3C 09					cmp		al,9
+ 0D0B  7E 0E					jle		vok
+				;
+				.386
+ 0D0D  66| 5A					pop		edx					; bail out if not a number
+ 0D0F  66| 58					pop		eax
+ 0D11  66| 33 C0				xor		eax,eax
+ 0D14  66| 33 D2				xor		edx,edx
+ 0D17  66| 5B					pop		ebx
+				.286
+ 0D19  FB					sti
+ 0D1A  C3					ret
+
+ 0D1B				vok:
+				.386			
+ 0D1B  66| 8B D8				mov		ebx,eax
+ 0D1E  66| 58					pop		eax
+ 0D20  66| 50					push	eax				; edx:eax=multiplier, also still on stack
+ 0D22  66| F7 E3				mul		ebx
+												; edx:eax has value, add it to base value
+ 0D25  66| 11 06 0CCB R				adc		rsltbuffl,eax
+ 0D2A  73 05					jnc		sk1
+ 0D2C  66| FF 06 0CCF R				inc		rsltbuffh
+ 0D31				sk1:
+ 0D31  66| 01 16 0CCF R				add		rsltbuffh,edx	; result is saved
+						
+ 0D36  66| 58					pop		eax
+ 0D38  66| 5A					pop		edx				; edx:eax = multiplier,adjust multiplier
+ 0D3A  E2 A8					loop	convloop
+ 0D3C  66| A1 0CCB R				mov		eax,rsltbuffl
+ 0D40  66| 8B 16 0CCF R				mov		edx,rsltbuffh
+ 0D45  66| 5B					pop		ebx
+				.286
+ 0D47  FB					sti
+ 0D48  C3					ret
+
+
+
+ 0D49				getStringSize:		;returns string size in cx
+ 0D49  50					push	ax
+ 0D4A  56					push	si
+ 0D4B  B9 0000					mov		cx,0
+ 0D4E				ssnext:
+ 0D4E  AC					lodsb
+ 0D4F  0A C0					or	al,al
+ 0D51  74 03					jz		gssdone
+ 0D53  41					inc		cx
+ 0D54  EB F8					jmp	ssnext
+
+ 0D56				gssdone:
+ 0D56  5E					pop		si
+ 0D57  58					pop		ax
+ 0D58  C3					ret 
+				;******************************************************************************
+				;*  GetNextPAram - loops reading the string until a white space is found
+				;*                  si -> input buffer
+				;*			returns si-> remainder of line bufer, bx = pointer to parameter
+				;*
+				;******************************************************************************
+				public GetNextParam
+ 0D59				GetNextParam:
+ 0D59  57					push	di
+ 0D5A  50					push	ax
+ 0D5B  BF 0D82 R				mov		di,offset paramBuff
+
+ 0D5E  AC					lodsb			; get first character
+ 0D5F  0A C0					or		al,al
+ 0D61  75 06					jnz		gnpLoop
+ 0D63  BB 0000					mov		bx,0
+ 0D66  58					pop		ax
+ 0D67  5F					pop		di
+
+ 0D68  C3					ret
+ 0D69				gnpLoop:	
+ 0D69  0A C0					or		al,al
+ 0D6B  74 0C					jz 		gnpdone
+ 0D6D  3C 2C					cmp		al,','
+ 0D6F  74 08					jz 		gnpdone
+ 0D71  3C 20					cmp		al,' '
+ 0D73  74 04					jz 		gnpdone
+
+ 0D75  AA					stosb
+ 0D76  AC					lodsb
+ 0D77  EB F0					jmp	gnpLoop
+ 0D79				gnpdone:
+ 0D79  B0 00				   	mov		al,0
+ 0D7B  AA					stosb
+ 0D7C  BB 0D82 R				mov		bx,offset paramBuff
+ 0D7F  58					pop		ax
+ 0D80  5F					pop		di
+ 0D81  C3					ret	
+				;
+				; -- DATA AREA ---
+				;
+ 0D82   0050 [			paramBuff 	db  80 dup (0)
+	 00
+	]
+
+ 0DD2				_Text ENDS
+				  END 
+Microsoft (R) Macro Assembler Version 6.11		    06/17/05 15:51:00
+DispUtl.asm						     Symbols 2 - 1
+
+
+
+
+Macros:
+
+                N a m e                 Type
+
+OPSIZ  . . . . . . . . . . . . .	Proc
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+BiosDrvTab . . . . . . . . . . .	 0010
+  BDTCylinders . . . . . . . . .	 0000	     Word
+  BDTHeads . . . . . . . . . . .	 0002	     Byte
+  BDTPrecomp . . . . . . . . . .	 0005	     Word
+  BDTECC . . . . . . . . . . . .	 0007	     Byte
+  BDTCtrl  . . . . . . . . . . .	 0008	     Byte
+  BDTLanding . . . . . . . . . .	 000C	     Word
+  BDTSectors . . . . . . . . . .	 000E	     Byte
+DriveInfo  . . . . . . . . . . .	 0223
+  DIid . . . . . . . . . . . . .	 0000	     Byte
+  DIHeads  . . . . . . . . . . .	 0001	     Byte
+  DIExtend . . . . . . . . . . .	 0002	     Byte
+  DISectors  . . . . . . . . . .	 0003	     Byte
+  DICylinders  . . . . . . . . .	 0005	     Word
+  DIFreeSect . . . . . . . . . .	 0007	     DWord
+  DITotSect  . . . . . . . . . .	 000B	     DWord
+  DIExtSize1 . . . . . . . . . .	 000F	     DWord
+  DIExtSize  . . . . . . . . . .	 0013	     DWord
+  DIPartTab1 . . . . . . . . . .	 0017	      0083
+EXT_PARTITION  . . . . . . . . .	 001A
+  EPpte  . . . . . . . . . . . .	 0000	      0010
+  EPStartLBA . . . . . . . . . .	 0010	     DWord
+  EPEndLBA . . . . . . . . . . .	 0014	     DWord
+  EPbootable . . . . . . . . . .	 0018	     Byte
+  EPDrive  . . . . . . . . . . .	 0019	     Byte
+ExtBiosDiskAddrPkt . . . . . . .	 0018
+  EBDAPSz  . . . . . . . . . . .	 0000	     Byte
+  EBDAPres1  . . . . . . . . . .	 0001	     Byte
+  EBDAPBlocks  . . . . . . . . .	 0002	     Byte
+  EBDAPres2  . . . . . . . . . .	 0003	     Byte
+  EBDAPLowPtr  . . . . . . . . .	 0004	     Word
+  EBDAPHighPtr . . . . . . . . .	 0006	     Word
+  EBDAPLBAlow  . . . . . . . . .	 0008	     DWord
+  EBDAPLBAhigh . . . . . . . . .	 000C	     DWord
+  EBDAPFlatAdr1  . . . . . . . .	 0010	     DWord
+  EBDAPFlatAdr2  . . . . . . . .	 0014	     DWord
+ExtBiosDrvTab  . . . . . . . . .	 001E
+  EBDTBuffSz . . . . . . . . . .	 0000	     Word
+  EBDTInfo . . . . . . . . . . .	 0002	     Word
+  EBDTCylinders  . . . . . . . .	 0004	     DWord
+  EBDTHeads  . . . . . . . . . .	 0008	     DWord
+  EBDTSectors  . . . . . . . . .	 000C	     DWord
+  EBDTTotSect  . . . . . . . . .	 0010	     DWord
+  EBDTTotSect1 . . . . . . . . .	 0014	     DWord
+  EBDTSectTrk  . . . . . . . . .	 0018	     Word
+  EBDTEDD  . . . . . . . . . . .	 001A	     DWord
+GWIND  . . . . . . . . . . . . .	 0014
+  xorg . . . . . . . . . . . . .	 0000	     Word
+  yorg . . . . . . . . . . . . .	 0002	     Word
+  xend . . . . . . . . . . . . .	 0004	     Word
+  yend . . . . . . . . . . . . .	 0006	     Word
+  xsiz . . . . . . . . . . . . .	 0008	     Word
+  ysiz . . . . . . . . . . . . .	 000A	     Word
+  bcolor . . . . . . . . . . . .	 000C	     Word
+  ccolor . . . . . . . . . . . .	 000E	     Word
+  currx  . . . . . . . . . . . .	 0010	     Word
+  curry  . . . . . . . . . . . .	 0012	     Word
+MODEINFO . . . . . . . . . . . .	 0100
+  modeattributes . . . . . . . .	 0000	     Word
+  winaattributes . . . . . . . .	 0002	     Byte
+  winbattributes . . . . . . . .	 0003	     Byte
+  wingranularity . . . . . . . .	 0004	     Word
+  winsize  . . . . . . . . . . .	 0006	     Word
+  winasegment  . . . . . . . . .	 0008	     Word
+  winbsegment  . . . . . . . . .	 000A	     Word
+  winfuncptr . . . . . . . . . .	 000C	     DWord
+  bytesperscanline . . . . . . .	 0010	     Word
+  xresolution  . . . . . . . . .	 0012	     Word
+  yresolution  . . . . . . . . .	 0014	     Word
+  xcharsize  . . . . . . . . . .	 0016	     Byte
+  ycharsize  . . . . . . . . . .	 0017	     Byte
+  numberofplanes . . . . . . . .	 0018	     Byte
+  bitsperpixel . . . . . . . . .	 0019	     Byte
+  numberofbanks  . . . . . . . .	 001A	     Byte
+  memorymodel  . . . . . . . . .	 001B	     Byte
+  banksize . . . . . . . . . . .	 001C	     Byte
+  numberofimagepages . . . . . .	 001D	     Byte
+  reserved1  . . . . . . . . . .	 001E	     Byte
+  redmasksize  . . . . . . . . .	 001F	     Byte
+  redfieldposition . . . . . . .	 0020	     Byte
+  greenmasksize  . . . . . . . .	 0021	     Byte
+  greenfieldposition . . . . . .	 0022	     Byte
+  bluemasksize . . . . . . . . .	 0023	     Byte
+  bluefieldposition  . . . . . .	 0024	     Byte
+  rsvdmasksize . . . . . . . . .	 0025	     Byte
+  rsvdfieldposition  . . . . . .	 0026	     Byte
+  directcolormodeinfo  . . . . .	 0027	     Byte
+  physbaseptr  . . . . . . . . .	 0028	     DWord
+  offscreenmemoffset . . . . . .	 002C	     DWord
+  offscreenmemsize . . . . . . .	 0030	     Word
+  reserved2  . . . . . . . . . .	 0032	     Byte
+PARTITION_INFO . . . . . . . . .	 0083
+  PIpte  . . . . . . . . . . . .	 0000	      0010
+  PIStartLBA . . . . . . . . . .	 0010	     DWord
+  PIEndLBA . . . . . . . . . . .	 0014	     DWord
+  PIbootable . . . . . . . . . .	 0018	     Byte
+  PIDrive  . . . . . . . . . . .	 0019	     Byte
+  PIExtended . . . . . . . . . .	 001A	     Byte
+  PIEParts . . . . . . . . . . .	 001B	      001A
+PARTITION_TABLE_ENTRY  . . . . .	 0010
+  bte_bootable . . . . . . . . .	 0000	     Byte
+  bte_starthead  . . . . . . . .	 0001	     Byte
+  bte_startsector  . . . . . . .	 0002	     Word
+  bte_system . . . . . . . . . .	 0004	     Byte
+  bte_endhead  . . . . . . . . .	 0005	     Byte
+  bte_endsector  . . . . . . . .	 0006	     Word
+  bte_relativesector . . . . . .	 0008	     DWord
+  bte_totalsector  . . . . . . .	 000C	     DWord
+VBEINFO  . . . . . . . . . . . .	 0200
+  vbesignature . . . . . . . . .	 0000	     Byte
+  vbeversion . . . . . . . . . .	 0004	     Word
+  oemstringptr . . . . . . . . .	 0006	     DWord
+  capabilities . . . . . . . . .	 000A	     Byte
+  videomodeptr . . . . . . . . .	 000E	     DWord
+  totalmemory  . . . . . . . . .	 0012	     Word
+  oemsoftwarerev . . . . . . . .	 0014	     Word
+  oemvendornameptr . . . . . . .	 0016	     DWord
+  oemproductnameptr  . . . . . .	 001A	     DWord
+  oemproductrevptr . . . . . . .	 001E	     DWord
+  reserved . . . . . . . . . . .	 0022	     Byte
+  oemdata  . . . . . . . . . . .	 0100	     Byte
+VDCONTX  . . . . . . . . . . . .	 0338
+  Create . . . . . . . . . . . .	 0000	     Word
+  Destroy  . . . . . . . . . . .	 0002	     Word
+  Clear  . . . . . . . . . . . .	 0004	     Word
+  getNumPages  . . . . . . . . .	 0006	     Word
+  setActivePage  . . . . . . . .	 0008	     Word
+  setVisiblePage . . . . . . . .	 000A	     Word
+  pixel  . . . . . . . . . . . .	 000C	     Word
+  fillRect . . . . . . . . . . .	 000E	     Word
+  drawRect . . . . . . . . . . .	 0010	     Word
+  drawChar . . . . . . . . . . .	 0012	     Word
+  drawLine . . . . . . . . . . .	 0014	     Word
+  drawString . . . . . . . . . .	 0016	     Word
+  createWindow . . . . . . . . .	 0018	     Word
+  createbutton . . . . . . . . .	 001A	     Word
+  vbi  . . . . . . . . . . . . .	 001C	      0200
+  vmi  . . . . . . . . . . . . .	 021C	      0100
+  origMode . . . . . . . . . . .	 031C	     Word
+  currentMode  . . . . . . . . .	 031E	     Word
+  currentBank  . . . . . . . . .	 0320	     Word
+  banksPerPage . . . . . . . . .	 0322	     Word
+  activePage . . . . . . . . . .	 0324	     Word
+  activePageOffset . . . . . . .	 0326	     Word
+  visiblePage  . . . . . . . . .	 0328	     Word
+  error  . . . . . . . . . . . .	 032A	     Word
+  maxx . . . . . . . . . . . . .	 032C	     Word
+  maxy . . . . . . . . . . . . .	 032E	     Word
+  vwidth . . . . . . . . . . . .	 0330	     Word
+  vheight  . . . . . . . . . . .	 0332	     Word
+  fontSeg  . . . . . . . . . . .	 0334	     Word
+  fontOff  . . . . . . . . . . .	 0336	     Word
+VGACOLOR . . . . . . . . . . . .	 0006
+  red  . . . . . . . . . . . . .	 0000	     Word
+  green  . . . . . . . . . . . .	 0002	     Word
+  blue . . . . . . . . . . . . .	 0004	     Word
+VgaInfoBlock . . . . . . . . . .	 0200
+  VESASignature  . . . . . . . .	 0000	     Byte
+  VESAVersion  . . . . . . . . .	 0004	     Word
+  OEMStringPtr . . . . . . . . .	 0006	     DWord
+  Capabilities . . . . . . . . .	 000A	     Byte
+  VideoModePtr . . . . . . . . .	 000E	     DWord
+  TotalMemory  . . . . . . . . .	 0012	     Word
+  Reserved . . . . . . . . . . .	 0014	     Byte
+  OemData  . . . . . . . . . . .	 0100	     Byte
+
+
+Records:
+
+                N a m e                  Width     # fields
+                                         Shift     Width     Mask      Initial
+
+CYLSEC . . . . . . . . . . . . .	 0010	   0002
+  Cylinder . . . . . . . . . . .	 0006	   000A	     FFC0     ?
+  Sector . . . . . . . . . . . .	 0000	   0006	     003F     ?
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+_Text  . . . . . . . . . . . . .	16 Bit	 0DD2	  Para	  Public  
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+AIXBOOT  . . . . . . . . . . . .	Number	 0008h	 
+AIXDATA  . . . . . . . . . . . .	Number	 0009h	 
+BEXTEND  . . . . . . . . . . . .	Number	 000Fh	 
+BFAT16 . . . . . . . . . . . . .	Number	 000Eh	 
+BFAT32 . . . . . . . . . . . . .	Number	 000Ch	 
+BGFAT16  . . . . . . . . . . . .	Number	 0006h	 
+BOOTABLE . . . . . . . . . . . .	Number	 0001h	 
+DELL . . . . . . . . . . . . . .	Number	 00DEh	 
+DIEXTENDED . . . . . . . . . . .	Number	 0055h	 
+DYNVOL . . . . . . . . . . . . .	Number	 0042h	 
+EFI  . . . . . . . . . . . . . .	Number	 00EFh	 
+EISA . . . . . . . . . . . . . .	Number	 0012h	 
+EXTEND . . . . . . . . . . . . .	Number	 0005h	 
+FAT12  . . . . . . . . . . . . .	Number	 0001h	 
+FAT16  . . . . . . . . . . . . .	Number	 0004h	 
+FAT32  . . . . . . . . . . . . .	Number	 000Bh	 
+GPT  . . . . . . . . . . . . . .	Number	 00EEh	 
+GetChar  . . . . . . . . . . . .	L Near	 0C84	  _Text	Public
+GetLine  . . . . . . . . . . . .	L Near	 0C93	  _Text	Public
+GetNextParam . . . . . . . . . .	L Near	 0D59	  _Text	Public
+HIB  . . . . . . . . . . . . . .	Number	 00A0h	 
+IBM  . . . . . . . . . . . . . .	Number	 00FEh	 
+LINUXRT  . . . . . . . . . . . .	Number	 0083h	 
+LINUXSW  . . . . . . . . . . . .	Number	 0082h	 
+MDFAT16  . . . . . . . . . . . .	Number	 0086h	 
+MDNTFS . . . . . . . . . . . . .	Number	 0087h	 
+NTFS . . . . . . . . . . . . . .	Number	 0007h	 
+OS2BOOT  . . . . . . . . . . . .	Number	 000Ah	 
+POWMAN . . . . . . . . . . . . .	Number	 0084h	 
+PTE_BOOTABLE . . . . . . . . . .	Number	 0080h	 
+PTE_EXTENDED . . . . . . . . . .	Number	 00AAh	 
+VCCreate . . . . . . . . . . . .	L Near	 0000	  _Text	External
+XENIXR . . . . . . . . . . . . .	Number	 0002h	 
+XENIXU . . . . . . . . . . . . .	Number	 0003h	 
+activeWindow . . . . . . . . . .	Word	 00C5	  _Text	Public
+activepage . . . . . . . . . . .	Word	 021B	  _Text	
+alphab . . . . . . . . . . . . .	L Near	 0B6B	  _Text	
+ascii2hex  . . . . . . . . . . .	L Near	 0CD3	  _Text	Public
+bSkipZero  . . . . . . . . . . .	Byte	 0C73	  _Text	Public
+bad_char . . . . . . . . . . . .	L Near	 0CBF	  _Text	
+bdone  . . . . . . . . . . . . .	L Near	 0502	  _Text	
+bioschar . . . . . . . . . . . .	L Near	 0B46	  _Text	
+bloop  . . . . . . . . . . . . .	L Near	 04ED	  _Text	
+boots  . . . . . . . . . . . . .	Byte	 0419	  _Text	
+chardone . . . . . . . . . . . .	L Near	 0BBB	  _Text	
+charloop . . . . . . . . . . . .	L Near	 0BB1	  _Text	
+cok1 . . . . . . . . . . . . . .	L Near	 0C55	  _Text	
+cok2 . . . . . . . . . . . . . .	L Near	 0C5B	  _Text	
+colorbuff  . . . . . . . . . . .	VGACOLOR  051D	   _Text	
+convloop . . . . . . . . . . . .	L Near	 0CE4	  _Text	
+creats . . . . . . . . . . . . .	Byte	 0412	  _Text	
+dbloop1  . . . . . . . . . . . .	L Near	 0C4C	  _Text	
+dbloop . . . . . . . . . . . . .	L Near	 0C29	  _Text	
+del_char . . . . . . . . . . . .	L Near	 0CC1	  _Text	
+desktop  . . . . . . . . . . . .	GWIND	 0011	  _Text	Public
+displayBuffer  . . . . . . . . .	L Near	 0C1F	  _Text	Public
+dlp  . . . . . . . . . . . . . .	L Near	 0CF0	  _Text	
+gbBoot . . . . . . . . . . . . .	GWIND	 0075	  _Text	
+gbCreatePart . . . . . . . . . .	GWIND	 0061	  _Text	
+gbQuit . . . . . . . . . . . . .	GWIND	 0089	  _Text	
+gbView . . . . . . . . . . . . .	GWIND	 009D	  _Text	
+gbZap  . . . . . . . . . . . . .	GWIND	 00B1	  _Text	
+gdone  . . . . . . . . . . . . .	L Near	 0507	  _Text	
+getStringSize  . . . . . . . . .	L Near	 0D49	  _Text	
+gloop  . . . . . . . . . . . . .	L Near	 04E5	  _Text	
+gnpLoop  . . . . . . . . . . . .	L Near	 0D69	  _Text	
+gnpdone  . . . . . . . . . . . .	L Near	 0D79	  _Text	
+gssdone  . . . . . . . . . . . .	L Near	 0D56	  _Text	
+gwCommand  . . . . . . . . . . .	GWIND	 0039	  _Text	Public
+gwDrives . . . . . . . . . . . .	GWIND	 0025	  _Text	Public
+gwSector . . . . . . . . . . . .	GWIND	 004D	  _Text	Public
+gwtest2  . . . . . . . . . . . .	GWIND	 00C7	  _Text	
+hellos . . . . . . . . . . . . .	Byte	 0000	  _Text	
+init_command . . . . . . . . . .	L Near	 0437	  _Text	Public
+init_sector  . . . . . . . . . .	L Near	 047E	  _Text	Public
+init_vid . . . . . . . . . . . .	L Near	 0221	  _Text	Public
+kill_vid . . . . . . . . . . . .	L Near	 042D	  _Text	Public
+lbuff  . . . . . . . . . . . . .	Byte	 021D	  _Text	
+line_done  . . . . . . . . . . .	L Near	 0CC3	  _Text	
+memset . . . . . . . . . . . . .	L Near	 0000	  External
+mloopdone  . . . . . . . . . . .	L Near	 0CFB	  _Text	
+next_char  . . . . . . . . . . .	L Near	 0C9D	  _Text	
+nextline . . . . . . . . . . . .	L Near	 0C25	  _Text	
+not0 . . . . . . . . . . . . . .	L Near	 0BE7	  _Text	
+novid  . . . . . . . . . . . . .	L Near	 0410	  _Text	
+ok_char  . . . . . . . . . . . .	L Near	 0CB9	  _Text	
+paramBuff  . . . . . . . . . . .	Byte	 0D82	  _Text	
+phnout . . . . . . . . . . . . .	L Near	 0B75	  _Text	
+printChar  . . . . . . . . . . .	L Near	 0B26	  _Text	Public
+printHexByte . . . . . . . . . .	L Near	 0B77	  _Text	Public
+printHexDWord  . . . . . . . . .	L Near	 0B95	  _Text	Public
+printHexNibble . . . . . . . . .	L Near	 0B4D	  _Text	Public
+printHexWord . . . . . . . . . .	L Near	 0B87	  _Text	Public
+print_size . . . . . . . . . . .	L Near	 0BC1	  _Text	Public
+println  . . . . . . . . . . . .	L Near	 0BA6	  _Text	Public
+ps_loop  . . . . . . . . . . . .	L Near	 0BD6	  _Text	
+quits  . . . . . . . . . . . . .	Byte	 041F	  _Text	
+rdone  . . . . . . . . . . . . .	L Near	 050C	  _Text	
+rloop  . . . . . . . . . . . . .	L Near	 04DA	  _Text	
+rsltbuffh  . . . . . . . . . . .	DWord	 0CCF	  _Text	
+rsltbuffl  . . . . . . . . . . .	DWord	 0CCB	  _Text	
+sCommands  . . . . . . . . . . .	Byte	 00DB	  _Text	
+sNumBuff . . . . . . . . . . . .	Byte	 0C74	  _Text	
+setPalette332  . . . . . . . . .	L Near	 04C9	  _Text	
+sgline . . . . . . . . . . . . .	Byte	 0C89	  _Text	
+showZero . . . . . . . . . . . .	L Near	 0B1D	  _Text	Public
+showval  . . . . . . . . . . . .	L Near	 0B5F	  _Text	
+sk1  . . . . . . . . . . . . . .	L Near	 0D31	  _Text	
+skip0  . . . . . . . . . . . . .	L Near	 0BEC	  _Text	
+ssnext . . . . . . . . . . . . .	L Near	 0D4E	  _Text	
+vbeGetInfo . . . . . . . . . . .	L Near	 0000	  External
+vbeGetModeInfo . . . . . . . . .	L Near	 0000	  External
+vbeGetMode . . . . . . . . . . .	L Near	 0000	  External
+vbeSetBankAddr . . . . . . . . .	L Near	 0000	  External
+vbeSetDisplayStart . . . . . . .	L Near	 0000	  External
+vbeSetMode . . . . . . . . . . .	L Near	 0000	  External
+vgaSetPalette  . . . . . . . . .	L Near	 0000	  External
+vidcontext . . . . . . . . . . .	Word	 000F	  _Text	Public
+views  . . . . . . . . . . . . .	Byte	 0424	  _Text	
+vok  . . . . . . . . . . . . . .	L Near	 0D1B	  _Text	
+waitBlankEnd . . . . . . . . . .	L Near	 0000	  External
+waitRetrace  . . . . . . . . . .	L Near	 0000	  External
+zaps . . . . . . . . . . . . . .	Byte	 0429	  _Text	
+
+	   0 Warnings
+	   0 Errors

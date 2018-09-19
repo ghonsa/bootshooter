@@ -1,0 +1,430 @@
+Microsoft (R) Macro Assembler Version 6.11		    06/17/05 15:51:28
+WriteS.asm						     Page 1 - 1
+
+
+
+				.286
+				;***********************************************************
+				;  Copyright 2005 Greg Honsa
+				;
+				;***********************************************************
+				 include pte.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C 
+ = 0001			      C BOOTABLE equ 1			; set to make a bootable image
+			      C OPSIZ macro
+			      C 	db 66h
+			      C endm
+			      C 
+			      C ;
+			      C ;** fat type byte defs
+			      C ;
+ = 0001			      C FAT12 	equ 01h 	;FAT12 primary parttion (fewer than 32,680 sectors in the volume) 
+ = 0002			      C XENIXR	equ 02h		;Xenix root
+ = 0003			      C XENIXU  equ 03h		;Xenix usr
+ = 0004			      C FAT16 	equ 04h 	;FAT16 partition or logical drive ( 16 MB) 
+ = 0005			      C EXTEND  equ 05h 	;Extended partition 
+ = 0006			      C BGFAT16	equ 06h		;BIGDOS FAT16 partition or logical drive (33 mb)  
+ = 0007			      C NTFS	equ 07h		;Installable File System (NTFS partition or logical drive) 
+ = 0008			      C AIXBOOT equ 08h		;AIX boot partition
+ = 0009			      C AIXDATA equ 09h		;AIX data
+ = 000A			      C OS2BOOT equ	0Ah		;OS/2 boot partition
+ = 000B			      C FAT32	equ 0Bh		;FAT32 partition or logical drive 
+ = 000C			      C BFAT32	equ 0Ch		;FAT32 partition or logical drive using BIOS INT 13h extensions 
+ = 000E			      C BFAT16	equ 0Eh 	;BIGDOS FAT16 partition or logical drive using BIOS INT 13h extensions 
+ = 000F			      C BEXTEND equ 0Fh		; Extended partition using BIOS INT 13h extensions 
+ = 0012			      C EISA	equ 12h 	;EISA partition or OEM partition 
+ = 0042			      C DYNVOL	equ 42h 	;Dynamic volume 
+ = 0082			      C LINUXSW equ 82h		;Linux swap partition
+ = 0083			      C LINUXRT equ 83h		;Linux native partition
+ = 0084			      C POWMAN  equ 84h 	;Power management hibernation partition 
+ = 0086			      C MDFAT16	equ 86h 	;Multidisk FAT16 volume created by using Windows NT 4.0 
+ = 0087			      C MDNTFS  equ 87h 	;Multidisk NTFS volume created by using Windows NT 4.0 
+ = 00A0			      C HIB		equ 0A0h 	;Laptop hibernation partition 
+ = 00DE			      C DELL	equ 0DEh 	;Dell OEM partition 
+ = 00FE			      C IBM		equ 0FEh 	;IBM OEM partition 
+ = 00EE			      C GPT		equ 0EEh 	;GPT partition  
+ = 00EF			      C EFI		equ 0EFh 	;EFI System partition on an MBR disk 
+			      C 
+ = 0080			      C PTE_BOOTABLE EQU 80h
+ = 00AA			      C PTE_EXTENDED EQU 0AAh
+			      C CYLSEC record Cylinder:10,Sector:6
+			      C 
+ 0010			      C PARTITION_TABLE_ENTRY struc
+ 0000  00		      C 	bte_bootable		db	?
+ 0001  00		      C 	bte_starthead		db	?
+ 0002  0000		      C 	bte_startsector		dw	?	     
+ 0004  00		      C 	bte_system			db	?
+ 0005  00		      C 	bte_endhead			db	?
+ 0006  0000		      C 	bte_endsector		dw	?
+ 0008  00000000		      C 	bte_relativesector	dd	?
+ 000C  00000000		      C 	bte_totalsector		dd	?
+			      C PARTITION_TABLE_ENTRY ends
+			      C 
+ 001A			      C EXT_PARTITION struc
+ 0000  00 00 0000 00 00	      C   	EPpte		PARTITION_TABLE_ENTRY <>
+       0000 00000000
+       00000000
+ 0010  00000000		      C 	EPStartLBA			dd ?
+ 0014  00000000		      C 	EPEndLBA			dd ?
+ 0018  00		      C 	EPbootable			db ?
+ 0019  00		      C 	EPDrive				db ?
+			      C EXT_PARTITION ends
+			      C 
+ 0083			      C PARTITION_INFO struc
+ 0000  00 00 0000 00 00	      C   	PIpte		PARTITION_TABLE_ENTRY <>
+       0000 00000000
+       00000000
+ 0010  00000000		      C 	PIStartLBA			dd ?
+ 0014  00000000		      C 	PIEndLBA			dd ?
+ 0018  00		      C 	PIbootable			db ?
+ 0019  00		      C 	PIDrive				db ?
+ 001A  00		      C 	PIExtended			db ?
+ 001B  0004 [		      C    	PIEParts			EXT_PARTITION 4 DUP(<>)
+        00 00 0000 00 00
+        0000 00000000
+        00000000 00000000
+        00000000 00 00
+       ]
+			      C PARTITION_INFO	ends
+			      C ;
+			      C ;--- drive info
+			      C ;
+ = 0055			      C DIEXTENDED		equ	055h
+ 0223			      C DriveInfo	STRUC
+ 0000  00		      C 	DIid			db	?
+ 0001  00		      C 	DIHeads			db	?		
+ 0002  00		      C 	DIExtend		db	?
+ 0003  00		      C 	DISectors		db	?
+ 0004  00		      C 					db	?
+ 0005  0000		      C 	DICylinders		dw  ?
+ 0007  00000000		      C 	DIFreeSect		dd	?
+ 000B  00000000		      C 	DITotSect		dd	?
+ 000F  00000000		      C    	DIExtSize1		dd  ?
+ 0013  00000000		      C    	DIExtSize		dd  ?
+ 0017  0004 [		      C    	DIPartTab1		PARTITION_INFO 4 DUP (<>)
+        00 00 0000 00 00
+        0000 00000000
+        00000000 00000000
+        00000000 00 00 00
+        0004 [
+	 00 00 0000 00 00
+	 0000 00000000
+	 00000000
+	 00000000
+	 00000000 00 00
+	]
+			      C 
+			      C DriveInfo	ENDS
+			      C ;
+			      C ; --- BIOS disk parameter table ---
+			      C ;
+ 0010			      C BiosDrvTab	STRUC
+ 0000  0000		      C 	BDTCylinders	dw	?
+ 0002  00		      C 	BDTHeads		db	?
+ 0003  0000		      C 					dw	?
+ 0005  0000		      C 	BDTPrecomp		dw	?
+ 0007  00		      C 	BDTECC			db	?
+ 0008  00		      C 	BDTCtrl			db	?
+ 0009  00		      C 					db	?
+ 000A  0000		      C 					dw	?
+ 000C  0000		      C 	BDTLanding		dw	?
+ 000E  00		      C 	BDTSectors		db	?
+ 000F  00		      C 					db	?		
+			      C BiosDrvTab ENDS
+			      C ;
+			      C ; --- BIOS extended disk parameter table
+			      C ;
+ 001E			      C ExtBiosDrvTab STRUC
+ 0000  0000		      C 	EBDTBuffSz		dw	?
+ 0002  0000		      C 	EBDTInfo		dw	?
+ 0004  00000000		      C 	EBDTCylinders	dd	?
+ 0008  00000000		      C 	EBDTHeads		dd	?
+ 000C  00000000		      C 	EBDTSectors		dd	?
+ 0010  00000000		      C 	EBDTTotSect 	dd	?
+ 0014  00000000		      C 	EBDTTotSect1	dd	?
+ 0018  0000		      C 	EBDTSectTrk		dw	?
+ 001A  00000000		      C 	EBDTEDD			dd	?				   	
+			      C ExtBiosDrvTab ENDS
+			      C ;
+			      C ;  --- entended disk address packet
+			      C ;
+ 0018			      C ExtBiosDiskAddrPkt STRUC
+ 0000  00		      C 	EBDAPSz			db	?
+ 0001  00		      C 	EBDAPres1		db	?
+ 0002  00		      C 	EBDAPBlocks		db	?
+ 0003  00		      C 	EBDAPres2		db	?
+ 0004  0000		      C 	EBDAPLowPtr		dw	?
+ 0006  0000		      C 	EBDAPHighPtr	dw	?
+ 0008  00000000		      C 	EBDAPLBAlow		dd	?
+ 000C  00000000		      C 	EBDAPLBAhigh	dd	?
+ 0010  00000000		      C 	EBDAPFlatAdr1	dd	?
+ 0014  00000000		      C 	EBDAPFlatAdr2	dd	?
+			      C ExtBiosDiskAddrPkt ENDS
+			      C 	
+			      C ;
+			      C ; --- vesa info
+			      C ;
+ 0200			      C VgaInfoBlock    STRUC
+ 0000   0001 [		      C       VESASignature   db   'VESA'      ; 4 signature bytes 
+	 56 45 53 41
+	]
+ 0004  0000		      C       VESAVersion     dw   ?           ; VESA version number
+ 0006  00000000		      C       OEMStringPtr    dd   ?           ; Pointer to OEM string
+ 000A   0004 [		      C       Capabilities    db   4 dup(?)    ; capabilities of the video environment
+	 00
+	]
+ 000E  00000000		      C       VideoModePtr    dd   ?           ; pointer to supported Super VGA modes
+ 0012  0000		      C       TotalMemory     dw   ?           ; Number of 64kb memory blocks on board
+ 0014   00EC [		      C       Reserved        db   236 dup(?)  ; Remainder of VgaInfoBlock
+	 00
+	]
+ 0100   0100 [		      C 	  OemData		  db   256 dup(?)  ;
+	 00
+	]
+			      C VgaInfoBlock    ENDS
+			      C 
+				public WriteSectExt
+
+
+ 0000				_Text SEGMENT PUBLIC USE16
+				  assume CS:_Text, DS:_Text
+				;******************************************************************************
+				;*    WriteSectExt - ES:DI -> transfer bufer
+				;*				 EDX:EAX = LBA
+				;*				 CL = drive
+				;*
+				;******************************************************************************
+
+ 0000				WriteSectExt:
+ 0000  53					push	bx					; Save regs
+				.386
+ 0001  66| 52					push	edx
+ 0003  66| 50					push	eax
+				.286
+ 0005  BB 005B R				mov		bx,offset AdrPkt	; get packet address
+					assume bx:ptr ExtBiosDiskAddrPkt
+ 0008  B0 10					mov		al,16
+ 000A  88 07					mov		[bx].EBDAPSz,al		; set packet size
+ 000C  33 C0					xor		ax,ax
+ 000E  88 47 01					mov		[bx].EBDAPres1,al	; zero out reserved
+ 0011  88 47 03					mov		[bx].EBDAPres2,al
+ 0014  B0 01					mov		al,1				
+ 0016  88 47 02					mov		[bx].EBDAPBlocks,al	; always 1 block (sector)
+
+ 0019  06					push	es
+ 001A  58					pop		ax					; Set pointer of transfer buffer
+ 001B  89 47 06					mov		[bx].EBDAPHighPtr,ax
+ 001E  89 7F 04					mov		[bx].EBDAPLowPtr,di
+ 0021  FA					cli
+				.386
+ 0022  66| 33 C0				xor		eax,eax
+ 0025  66| 89 47 10				mov		[bx].EBDAPFlatAdr1,eax	; Zero out flat addr
+ 0029  66| 89 47 14				mov		[bx].EBDAPFlatAdr2,eax
+					
+ 002D  66| 58					pop		eax
+ 002F  66| 89 57 0C				mov		[bx].EBDAPLBAhigh,edx	; set the LBA
+ 0033  66| 89 47 08				mov		[bx].EBDAPLBAlow,eax
+				.286 		
+ 0037  8B F3					mov		si,bx					; do the extended read
+ 0039  8A D1					mov		dl,cl
+ 003B  B8 4300					mov		ax,4300h
+ 003E  CD 13					int		13h
+				.386
+ 0040  66| 5A					pop		edx
+				.286	
+ 0042  5B					pop		bx
+					
+					
+ 0043  C3					ret 
+
+				;******************************************************************************
+				;*    WriteSect - ES:DI -> transfer bufer
+				;*				 
+				;*				 DL = drive
+				;*				 DH = head
+				;*               CL = sector
+				;*				 BX = cylinder
+				;*
+				;******************************************************************************
+				public WriteSectStd
+ 0044				WriteSectStd:
+ 0044  52					push	dx
+ 0045  51					push	cx
+ 0046  53					push	bx
+
+ 0047  8A EB					mov		ch,bl		; cylinder low 8 bits
+
+ 0049  8A C7					mov		al,bh		; upper 2 bits of cylinder
+ 004B  C0 E0 06					shl		al,6
+ 004E  0A C8					or		cl,al
+						
+ 0050  B8 0301					mov		ax,301h
+ 0053  8B DF					mov		bx,di
+ 0055  CD 13					int		13h
+ 0057  5B					pop		bx
+ 0058  59					pop		cx
+ 0059  5A					pop		dx
+ 005A  C3					ret	
+
+
+ 005B 00 00 00 00 0000		AdrPkt	ExtBiosDiskAddrPkt <?>
+        0000 00000000
+        00000000 00000000
+        00000000
+
+
+ 0073				_Text ENDS
+					END	
+Microsoft (R) Macro Assembler Version 6.11		    06/17/05 15:51:28
+WriteS.asm						     Symbols 2 - 1
+
+
+
+
+Macros:
+
+                N a m e                 Type
+
+OPSIZ  . . . . . . . . . . . . .	Proc
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+BiosDrvTab . . . . . . . . . . .	 0010
+  BDTCylinders . . . . . . . . .	 0000	     Word
+  BDTHeads . . . . . . . . . . .	 0002	     Byte
+  BDTPrecomp . . . . . . . . . .	 0005	     Word
+  BDTECC . . . . . . . . . . . .	 0007	     Byte
+  BDTCtrl  . . . . . . . . . . .	 0008	     Byte
+  BDTLanding . . . . . . . . . .	 000C	     Word
+  BDTSectors . . . . . . . . . .	 000E	     Byte
+DriveInfo  . . . . . . . . . . .	 0223
+  DIid . . . . . . . . . . . . .	 0000	     Byte
+  DIHeads  . . . . . . . . . . .	 0001	     Byte
+  DIExtend . . . . . . . . . . .	 0002	     Byte
+  DISectors  . . . . . . . . . .	 0003	     Byte
+  DICylinders  . . . . . . . . .	 0005	     Word
+  DIFreeSect . . . . . . . . . .	 0007	     DWord
+  DITotSect  . . . . . . . . . .	 000B	     DWord
+  DIExtSize1 . . . . . . . . . .	 000F	     DWord
+  DIExtSize  . . . . . . . . . .	 0013	     DWord
+  DIPartTab1 . . . . . . . . . .	 0017	      0083
+EXT_PARTITION  . . . . . . . . .	 001A
+  EPpte  . . . . . . . . . . . .	 0000	      0010
+  EPStartLBA . . . . . . . . . .	 0010	     DWord
+  EPEndLBA . . . . . . . . . . .	 0014	     DWord
+  EPbootable . . . . . . . . . .	 0018	     Byte
+  EPDrive  . . . . . . . . . . .	 0019	     Byte
+ExtBiosDiskAddrPkt . . . . . . .	 0018
+  EBDAPSz  . . . . . . . . . . .	 0000	     Byte
+  EBDAPres1  . . . . . . . . . .	 0001	     Byte
+  EBDAPBlocks  . . . . . . . . .	 0002	     Byte
+  EBDAPres2  . . . . . . . . . .	 0003	     Byte
+  EBDAPLowPtr  . . . . . . . . .	 0004	     Word
+  EBDAPHighPtr . . . . . . . . .	 0006	     Word
+  EBDAPLBAlow  . . . . . . . . .	 0008	     DWord
+  EBDAPLBAhigh . . . . . . . . .	 000C	     DWord
+  EBDAPFlatAdr1  . . . . . . . .	 0010	     DWord
+  EBDAPFlatAdr2  . . . . . . . .	 0014	     DWord
+ExtBiosDrvTab  . . . . . . . . .	 001E
+  EBDTBuffSz . . . . . . . . . .	 0000	     Word
+  EBDTInfo . . . . . . . . . . .	 0002	     Word
+  EBDTCylinders  . . . . . . . .	 0004	     DWord
+  EBDTHeads  . . . . . . . . . .	 0008	     DWord
+  EBDTSectors  . . . . . . . . .	 000C	     DWord
+  EBDTTotSect  . . . . . . . . .	 0010	     DWord
+  EBDTTotSect1 . . . . . . . . .	 0014	     DWord
+  EBDTSectTrk  . . . . . . . . .	 0018	     Word
+  EBDTEDD  . . . . . . . . . . .	 001A	     DWord
+PARTITION_INFO . . . . . . . . .	 0083
+  PIpte  . . . . . . . . . . . .	 0000	      0010
+  PIStartLBA . . . . . . . . . .	 0010	     DWord
+  PIEndLBA . . . . . . . . . . .	 0014	     DWord
+  PIbootable . . . . . . . . . .	 0018	     Byte
+  PIDrive  . . . . . . . . . . .	 0019	     Byte
+  PIExtended . . . . . . . . . .	 001A	     Byte
+  PIEParts . . . . . . . . . . .	 001B	      001A
+PARTITION_TABLE_ENTRY  . . . . .	 0010
+  bte_bootable . . . . . . . . .	 0000	     Byte
+  bte_starthead  . . . . . . . .	 0001	     Byte
+  bte_startsector  . . . . . . .	 0002	     Word
+  bte_system . . . . . . . . . .	 0004	     Byte
+  bte_endhead  . . . . . . . . .	 0005	     Byte
+  bte_endsector  . . . . . . . .	 0006	     Word
+  bte_relativesector . . . . . .	 0008	     DWord
+  bte_totalsector  . . . . . . .	 000C	     DWord
+VgaInfoBlock . . . . . . . . . .	 0200
+  VESASignature  . . . . . . . .	 0000	     Byte
+  VESAVersion  . . . . . . . . .	 0004	     Word
+  OEMStringPtr . . . . . . . . .	 0006	     DWord
+  Capabilities . . . . . . . . .	 000A	     Byte
+  VideoModePtr . . . . . . . . .	 000E	     DWord
+  TotalMemory  . . . . . . . . .	 0012	     Word
+  Reserved . . . . . . . . . . .	 0014	     Byte
+  OemData  . . . . . . . . . . .	 0100	     Byte
+
+
+Records:
+
+                N a m e                  Width     # fields
+                                         Shift     Width     Mask      Initial
+
+CYLSEC . . . . . . . . . . . . .	 0010	   0002
+  Cylinder . . . . . . . . . . .	 0006	   000A	     FFC0     ?
+  Sector . . . . . . . . . . . .	 0000	   0006	     003F     ?
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+_Text  . . . . . . . . . . . . .	16 Bit	 0073	  Para	  Public  
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+AIXBOOT  . . . . . . . . . . . .	Number	 0008h	 
+AIXDATA  . . . . . . . . . . . .	Number	 0009h	 
+AdrPkt . . . . . . . . . . . . .	ExtBiosDiskAddrPkt  005B     _Text	
+BEXTEND  . . . . . . . . . . . .	Number	 000Fh	 
+BFAT16 . . . . . . . . . . . . .	Number	 000Eh	 
+BFAT32 . . . . . . . . . . . . .	Number	 000Ch	 
+BGFAT16  . . . . . . . . . . . .	Number	 0006h	 
+BOOTABLE . . . . . . . . . . . .	Number	 0001h	 
+DELL . . . . . . . . . . . . . .	Number	 00DEh	 
+DIEXTENDED . . . . . . . . . . .	Number	 0055h	 
+DYNVOL . . . . . . . . . . . . .	Number	 0042h	 
+EFI  . . . . . . . . . . . . . .	Number	 00EFh	 
+EISA . . . . . . . . . . . . . .	Number	 0012h	 
+EXTEND . . . . . . . . . . . . .	Number	 0005h	 
+FAT12  . . . . . . . . . . . . .	Number	 0001h	 
+FAT16  . . . . . . . . . . . . .	Number	 0004h	 
+FAT32  . . . . . . . . . . . . .	Number	 000Bh	 
+GPT  . . . . . . . . . . . . . .	Number	 00EEh	 
+HIB  . . . . . . . . . . . . . .	Number	 00A0h	 
+IBM  . . . . . . . . . . . . . .	Number	 00FEh	 
+LINUXRT  . . . . . . . . . . . .	Number	 0083h	 
+LINUXSW  . . . . . . . . . . . .	Number	 0082h	 
+MDFAT16  . . . . . . . . . . . .	Number	 0086h	 
+MDNTFS . . . . . . . . . . . . .	Number	 0087h	 
+NTFS . . . . . . . . . . . . . .	Number	 0007h	 
+OS2BOOT  . . . . . . . . . . . .	Number	 000Ah	 
+POWMAN . . . . . . . . . . . . .	Number	 0084h	 
+PTE_BOOTABLE . . . . . . . . . .	Number	 0080h	 
+PTE_EXTENDED . . . . . . . . . .	Number	 00AAh	 
+WriteSectExt . . . . . . . . . .	L Near	 0000	  _Text	Public
+WriteSectStd . . . . . . . . . .	L Near	 0044	  _Text	Public
+XENIXR . . . . . . . . . . . . .	Number	 0002h	 
+XENIXU . . . . . . . . . . . . .	Number	 0003h	 
+
+	   0 Warnings
+	   0 Errors

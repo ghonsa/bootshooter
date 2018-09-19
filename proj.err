@@ -1,0 +1,11 @@
+	link /TINY /MAP binf disputl vgutl vcontex drvinf Zapper utils Partiton PartUtl Writes verfs ReadS diskbuff,bootsh,bootsh,,,
+
+Microsoft (R) Program Maintenance Utility   Version 1.20
+Copyright (c) Microsoft Corp 1988-92. All rights reserved.
+
+
+Microsoft (R) Segmented Executable Linker  Version 5.31.009 Jul 13 1992
+Copyright (C) Microsoft Corp 1984-1992.  All rights reserved.
+
+LINK : warning L4045: name of output file is 'bootsh.com'
+Loading NMAKE

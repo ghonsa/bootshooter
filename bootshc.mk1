@@ -1,0 +1,83 @@
+!define BLANK ""
+C:\work\bootshc\bootshc.obj : C:\work\bootshc\bootshc.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp bootshc.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -ms
+
+C:\work\bootshc\CreateP.obj : C:\work\bootshc\CreateP.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp CreateP.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -ms
+
+C:\work\bootshc\DeskTop.obj : C:\work\bootshc\DeskTop.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp DeskTop.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -ms
+
+C:\work\bootshc\diskio.obj : C:\work\bootshc\diskio.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp diskio.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -ms
+
+C:\work\bootshc\DriveInfo.obj : C:\work\bootshc\DriveInfo.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp DriveInfo.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -&
+ms
+
+C:\work\bootshc\driveWnd.obj : C:\work\bootshc\driveWnd.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp driveWnd.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -m&
+s
+
+C:\work\bootshc\ebox.obj : C:\work\bootshc\ebox.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp ebox.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -ms
+
+C:\work\bootshc\EditWnd.obj : C:\work\bootshc\EditWnd.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp EditWnd.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -ms
+
+C:\work\bootshc\gmouse.obj : C:\work\bootshc\gmouse.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp gmouse.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -ms
+
+C:\work\bootshc\GVC.obj : C:\work\bootshc\GVC.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp GVC.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -ms
+
+C:\work\bootshc\GVideo.obj : C:\work\bootshc\GVideo.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp GVideo.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -ms
+
+C:\work\bootshc\GWindow.obj : C:\work\bootshc\GWindow.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp GWindow.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -ms
+
+C:\work\bootshc\yesno.obj : C:\work\bootshc\yesno.cpp .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ *wpp yesno.cpp -i=c:\watcom\h -w4 -e25 -s -zp1 -zq -os -zu -3 -bt=dos -ms
+
+C:\work\bootshc\bootshc.com : C:\work\bootshc\bootshc.obj C:\work\bootshc\Cr&
+eateP.obj C:\work\bootshc\DeskTop.obj C:\work\bootshc\diskio.obj C:\work\boo&
+tshc\DriveInfo.obj C:\work\bootshc\driveWnd.obj C:\work\bootshc\ebox.obj C:\&
+work\bootshc\EditWnd.obj C:\work\bootshc\gmouse.obj C:\work\bootshc\GVC.obj &
+C:\work\bootshc\GVideo.obj C:\work\bootshc\GWindow.obj C:\work\bootshc\yesno&
+.obj C:\work\bootshc\diskio.h C:\work\bootshc\gtypes.h .AUTODEPEND
+ @C:
+ cd C:\work\bootshc
+ @%write bootshc.lk1 FIL bootshc.obj,CreateP.obj,DeskTop.obj,diskio.obj,Driv&
+eInfo.obj,driveWnd.obj,ebox.obj,EditWnd.obj,gmouse.obj,GVC.obj,GVideo.obj,GW&
+indow.obj,yesno.obj
+ @%append bootshc.lk1 
+ *wlink name bootshc SYS dos com op m libf ghstrt086.obj op maxe=25 op q op &
+symf op el @bootshc.lk1
+

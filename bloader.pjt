@@ -1,0 +1,73 @@
+;Codewright Project File (do not remove or modify this line)
+[ProjInit]
+ProjSetConfigFlags=0x00010140
+ProjCheckPath='C:\work\bootshooter\\'
+
+[Files]
+C:\work\bootshooter\pte.inc
+C:\work\bootshooter\DrvInf.asm
+C:\work\bootshooter\DispUtl.asm
+C:\work\bootshooter\DispUtl.inc
+C:\work\bootshooter\BInf.asm
+C:\work\bootshooter\binf.mak
+C:\work\bootshooter\Zapper.asm
+C:\work\bootshooter\partiton.asm
+C:\work\bootshooter\partiton.inc
+C:\work\bootshooter\diskbuff.inc
+C:\work\bootshooter\utils.asm
+C:\work\bootshooter\error.inc
+C:\work\bootshooter\partutl.asm
+C:\work\bootshooter\partutl.inc
+C:\WORK\BOOTSHOOTER\vgutl.asm
+C:\WORK\BOOTSHOOTER\vcontex.asm
+C:\WORK\BOOTSHOOTER\vcontex.inc
+C:\WORK\BOOTSHOOTER\reads.asm
+C:\WORK\BOOTSHOOTER\verfs.asm
+C:\WORK\BOOTSHOOTER\writes.asm
+C:\WORK\VIDEO\video.inc
+C:\WORK\BOOTSHOOTER\diskbuff.asm
+
+[State]
+SysSetCwd='C:\work\bootshc'
+SrchSetFlags=0x0419600a
+FileSortMode=0x0
+StateWindowFrame=8,0,1254,992,0x63097fca
+_StateWindow=33,170,917,524,0x00100008,'C:\work\bootshooter\DispUtl.asm',240,15,244,4,20,0,46,26,126,176,8,4294967295,4294967295,1,10,'',12,255,48,0,10,499,0,0,753,252,249,108,1,400,0,244,246,242,252,753,753,752,761,253,0,0,253,224,252,69,1,208
+_StateBuffer='C:\work\bootshooter\DispUtl.asm',0x0400048e,108,1,25,'5 9','',0x0,'',1,72
+_StateHistory=FILELIST,'C:\work\bootshc\GVC.cpp','C:\work\bootloader\vesabios\VBE.H','C:\work\bootloader\vesabios\VG.H','C:\work\bootloader\vesabios\VG.CPP','C:\WORK\BOOTSHOOTER\vcontex.asm','C:\work\bootloader\vesabios\VBE.CPP','C:\work\bootshc\GVideo.cpp','C:\work\bootshc\GVideo.h','C:\work\bootshc\GVC.h','C:\work\bootshooter\DispUtl.asm'
+_StateHistory=SEARCH,'        add     bx,0Fh      expandDGROUP','expandDGROUP','_amblksiz','amblksiz','InitRtns','rt_init','sgdef086','__end','_end','printf'
+_StateHistory=XSYMBOL,'vbeGetInfo','if','Create','vbeGetModeInfo','vbeGetMode','vbeSetMode','SetVMode','GetVMode','vbeSetDisplayStart','SetVDisplayStart'
+_StateHistory=EDITFILE,'C:\work\bootloader\vesabios\VBE.CPP','C:\work\bootloader\vesabios\VG.CPP','C:\work\bootloader\vesabios\VBE.H','C:\work\bootloader\vesabios\VG.H','C:\work\bootshc\GVC.h','C:\work\bootshc\GVideo.h','C:\work\bootloader\vesabios\VG.CPP','C:\work\bootloader\vesabios\VBE.CPP','C:\work\bootshc\GVideo.cpp','C:\work\bootshc\bootshc.pjt'
+_StateHistory=DIRECTORY,'c:\watcom\src','c:\watcom','c:\work','c:\work\bootshooter','c:\open_watcom_1.2.0-src\bld','c:\open_watcom_1.2.0-src\bld\clib\startup\c','c:\open_watcom_1.2.0-src\bld\clib'
+_StateHistory=DOSHISTORY,'ml','masmset','ml','gline','path'
+
+[Editor]
+ClipboardSetTermStr='\r\n',0
+ClipboardEnableTermStr=1
+ClipboardSetSepStr='\r\n',0
+ClipboardEnableSepStr=1
+ScrapSetCount=1
+
+[Compiler]
+TagSetCmd='${HOME}${WTAGS} -oc -d -t${TAGFILE}.tag -p${TAGFILE}.ptg',0x8000060
+BrowseSetFile='C:\work\bootloader\bloader.ptg'
+TagSetFile='C:\work\bootloader\bloader.tag'
+CompilerAddCmd='Microsoft Assembler','ml /AT /Fl %b%e',1073741840,'',16,'',16,'',16,'',0,'',0,'','','','',''
+CompilerAddResponse='Microsoft Assembler',
+CompilerAddCmd='Default Compiler Settings','',1073741840,'',16,'',16,'',16,'',0,'',0,'','','','',''
+CompilerAddResponse='Default Compiler Settings',
+CompilerAddCmd='$_cw_proj_hash_$','',1073741904,'',80,'${FTEE} nmake /f binf.mak',176,'${FTEE} nmake',176,'',0,'',0,'_ErrorInfoDefault','','','proj.err','c:\work\bootshooter'
+CompilerAddResponse='$_cw_proj_hash_$',
+CompilerNewExt=.htm
+CompilerNewExt=.pas
+CompilerNewExt=.ini
+CompilerNewExt=.html
+CompilerAssign='Default Compiler Settings','.*'
+CompilerNewExt=.txt
+CompilerAssign='Microsoft Assembler','.asm'
+
+[Project]
+ConfigSetLinkDBFilename='C:\CW32\cwright.ldb'
+ConfigSetSymbolDBFilename='C:\CW32\cwright.sbl'
+ConfigSetMarkDBFilename='C:\CW32\cwright.mrk'
+EditSetPath=''

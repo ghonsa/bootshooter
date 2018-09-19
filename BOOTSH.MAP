@@ -1,0 +1,199 @@
+
+ Start  Stop   Length Name                   Class
+ 00000H 0487FH 04880H _TEXT                  
+
+  Address         Publics by Name
+
+ 0000:0855       activeWindow
+ 0000:1463       ascii2hex
+ 0000:3649       BootPartition
+ 0000:1403       bSkipZero
+ 0000:3A3D       CheckPartition
+ 0000:3901       CHS2LBA
+ 0000:0209       cmdloop
+ 0000:3940       CreatePartition
+ 0000:07A1       desktop
+ 0000:2160       dinf
+ 0000:13AF       displayBuffer
+ 0000:34E6       displayDI
+ 0000:3B6F       DisplayPTable
+ 0000:368D       do_boot
+ 0000:1E20       drawChar
+ 0000:1D77       drawRect
+ 0000:334A       DriveInfoCollect
+ 0000:3467       DriveInfoDisplay
+ 0000:4250       dskbuffer
+ 0000:4460       dskbuffer1
+ 0000:4670       dskbuffer2
+ 0000:1DD4       fillRect
+ 0000:1414       GetChar
+ 0000:3ACA       getExtPart
+ 0000:1A65       getfnt
+ 0000:1423       GetLine
+ 0000:14E9       GetNextParam
+ 0000:07C9       gwCommand
+ 0000:07B5       gwDrives
+ 0000:07DD       gwSector
+ 0000:0BC7       init_command
+ 0000:0C0E       init_sector
+ 0000:09B1       init_vid
+ 0000:3602       isbootable
+ 0000:0BBD       kill_vid
+ 0000:4243       lastByte
+ 0000:3890       LBA2CHS
+ 0000:1646       memset
+ 0000:39E6       ParsePTable
+ 0000:1BA7       pixel
+ 0000:12B6       printChar
+ 0000:1307       printHexByte
+ 0000:1325       printHexDWord
+ 0000:12DD       printHexNibble
+ 0000:1317       printHexWord
+ 0000:1336       println
+ 0000:1351       print_size
+ 0000:4079       PTCommit
+ 0000:440E       pte0
+ 0000:441E       pte1
+ 0000:461E       pte10
+ 0000:462E       pte11
+ 0000:463E       pte12
+ 0000:464E       pte13
+ 0000:442E       pte2
+ 0000:443E       pte3
+ 0000:3ED0       PTFindFree
+ 0000:3F65       PTGetStartLBA
+ 0000:3EFD       PTGetUsed
+ 0000:465E       ptsig
+ 0000:486E       ptsig2
+ 0000:3F27       PTSort
+ 0000:4015       PTUpdate
+ 0000:3FCE       PTVerify
+ 0000:41D0       ReadSectExt
+ 0000:4214       ReadSectStd
+ 0000:344D       ShowSector
+ 0000:12AD       showZero
+ 0000:3342       sSpace
+ 0000:0000       start
+ 0000:3426       szloop
+ 0000:15DD       vbeGetInfo
+ 0000:15C7       vbeGetMode
+ 0000:15EC       vbeGetModeInfo
+ 0000:15FB       vbeSetBankAddr
+ 0000:162E       vbeSetDisplayStart
+ 0000:15D2       vbeSetMode
+ 0000:1AE6       VCClear
+ 0000:19C0       VCCreate
+ 0000:4160       VerfSectExt
+ 0000:419C       VerfSectStd
+ 0000:1570       vgaSetPalette
+ 0000:079F       vidcontext
+ 0000:161D       waitBlankEnd
+ 0000:160C       waitRetrace
+ 0000:40E0       WriteSectExt
+ 0000:4124       WriteSectStd
+ 0000:36E0       ZapDrive
+ 0000:0441       zapDrv
+ 0000:37BA       ZapPartition
+ 0000:0000  Abs  _edata
+ 0000:0000  Abs  _end
+ 0000:0000  Abs  __edata
+ 0000:0000  Abs  __end
+
+  Address         Publics by Value
+
+ 0000:0000  Abs  __edata
+ 0000:0000  Abs  __end
+ 0000:0000  Abs  _end
+ 0000:0000       start
+ 0000:0000  Abs  _edata
+ 0000:0209       cmdloop
+ 0000:0441       zapDrv
+ 0000:079F       vidcontext
+ 0000:07A1       desktop
+ 0000:07B5       gwDrives
+ 0000:07C9       gwCommand
+ 0000:07DD       gwSector
+ 0000:0855       activeWindow
+ 0000:09B1       init_vid
+ 0000:0BBD       kill_vid
+ 0000:0BC7       init_command
+ 0000:0C0E       init_sector
+ 0000:12AD       showZero
+ 0000:12B6       printChar
+ 0000:12DD       printHexNibble
+ 0000:1307       printHexByte
+ 0000:1317       printHexWord
+ 0000:1325       printHexDWord
+ 0000:1336       println
+ 0000:1351       print_size
+ 0000:13AF       displayBuffer
+ 0000:1403       bSkipZero
+ 0000:1414       GetChar
+ 0000:1423       GetLine
+ 0000:1463       ascii2hex
+ 0000:14E9       GetNextParam
+ 0000:1570       vgaSetPalette
+ 0000:15C7       vbeGetMode
+ 0000:15D2       vbeSetMode
+ 0000:15DD       vbeGetInfo
+ 0000:15EC       vbeGetModeInfo
+ 0000:15FB       vbeSetBankAddr
+ 0000:160C       waitRetrace
+ 0000:161D       waitBlankEnd
+ 0000:162E       vbeSetDisplayStart
+ 0000:1646       memset
+ 0000:19C0       VCCreate
+ 0000:1A65       getfnt
+ 0000:1AE6       VCClear
+ 0000:1BA7       pixel
+ 0000:1D77       drawRect
+ 0000:1DD4       fillRect
+ 0000:1E20       drawChar
+ 0000:2160       dinf
+ 0000:3342       sSpace
+ 0000:334A       DriveInfoCollect
+ 0000:3426       szloop
+ 0000:344D       ShowSector
+ 0000:3467       DriveInfoDisplay
+ 0000:34E6       displayDI
+ 0000:3602       isbootable
+ 0000:3649       BootPartition
+ 0000:368D       do_boot
+ 0000:36E0       ZapDrive
+ 0000:37BA       ZapPartition
+ 0000:3890       LBA2CHS
+ 0000:3901       CHS2LBA
+ 0000:3940       CreatePartition
+ 0000:39E6       ParsePTable
+ 0000:3A3D       CheckPartition
+ 0000:3ACA       getExtPart
+ 0000:3B6F       DisplayPTable
+ 0000:3ED0       PTFindFree
+ 0000:3EFD       PTGetUsed
+ 0000:3F27       PTSort
+ 0000:3F65       PTGetStartLBA
+ 0000:3FCE       PTVerify
+ 0000:4015       PTUpdate
+ 0000:4079       PTCommit
+ 0000:40E0       WriteSectExt
+ 0000:4124       WriteSectStd
+ 0000:4160       VerfSectExt
+ 0000:419C       VerfSectStd
+ 0000:41D0       ReadSectExt
+ 0000:4214       ReadSectStd
+ 0000:4243       lastByte
+ 0000:4250       dskbuffer
+ 0000:440E       pte0
+ 0000:441E       pte1
+ 0000:442E       pte2
+ 0000:443E       pte3
+ 0000:4460       dskbuffer1
+ 0000:461E       pte10
+ 0000:462E       pte11
+ 0000:463E       pte12
+ 0000:464E       pte13
+ 0000:465E       ptsig
+ 0000:4670       dskbuffer2
+ 0000:486E       ptsig2
+
+Program entry point at 0000:0000

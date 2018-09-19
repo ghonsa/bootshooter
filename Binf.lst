@@ -1,0 +1,1399 @@
+Microsoft (R) Macro Assembler Version 6.11		    06/17/05 17:03:35
+Binf.asm						     Page 1 - 1
+
+
+				;***********************************************************
+				;  BInd - BootInfo checks a systems hard drives and collects
+				;       information about bootable partitions. To be used as 
+				;       a test working toward a functional boot loader
+				;		Built as a com object (Tiny) easily converted to disk
+				;       boot image
+				; 
+				;  Copyright, 2005 Greg Honsa
+				;***********************************************************
+				include pte.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C 
+ = 0001			      C BOOTABLE equ 1			; set to make a bootable image
+			      C OPSIZ macro
+			      C 	db 66h
+			      C endm
+			      C 
+			      C ;
+			      C ;** fat type byte defs
+			      C ;
+ = 0001			      C FAT12 	equ 01h 	;FAT12 primary parttion (fewer than 32,680 sectors in the volume) 
+ = 0002			      C XENIXR	equ 02h		;Xenix root
+ = 0003			      C XENIXU  equ 03h		;Xenix usr
+ = 0004			      C FAT16 	equ 04h 	;FAT16 partition or logical drive ( 16 MB) 
+ = 0005			      C EXTEND  equ 05h 	;Extended partition 
+ = 0006			      C BGFAT16	equ 06h		;BIGDOS FAT16 partition or logical drive (33 mb)  
+ = 0007			      C NTFS	equ 07h		;Installable File System (NTFS partition or logical drive) 
+ = 0008			      C AIXBOOT equ 08h		;AIX boot partition
+ = 0009			      C AIXDATA equ 09h		;AIX data
+ = 000A			      C OS2BOOT equ	0Ah		;OS/2 boot partition
+ = 000B			      C FAT32	equ 0Bh		;FAT32 partition or logical drive 
+ = 000C			      C BFAT32	equ 0Ch		;FAT32 partition or logical drive using BIOS INT 13h extensions 
+ = 000E			      C BFAT16	equ 0Eh 	;BIGDOS FAT16 partition or logical drive using BIOS INT 13h extensions 
+ = 000F			      C BEXTEND equ 0Fh		; Extended partition using BIOS INT 13h extensions 
+ = 0012			      C EISA	equ 12h 	;EISA partition or OEM partition 
+ = 0042			      C DYNVOL	equ 42h 	;Dynamic volume 
+ = 0082			      C LINUXSW equ 82h		;Linux swap partition
+ = 0083			      C LINUXRT equ 83h		;Linux native partition
+ = 0084			      C POWMAN  equ 84h 	;Power management hibernation partition 
+ = 0086			      C MDFAT16	equ 86h 	;Multidisk FAT16 volume created by using Windows NT 4.0 
+ = 0087			      C MDNTFS  equ 87h 	;Multidisk NTFS volume created by using Windows NT 4.0 
+ = 00A0			      C HIB		equ 0A0h 	;Laptop hibernation partition 
+ = 00DE			      C DELL	equ 0DEh 	;Dell OEM partition 
+ = 00FE			      C IBM		equ 0FEh 	;IBM OEM partition 
+ = 00EE			      C GPT		equ 0EEh 	;GPT partition  
+ = 00EF			      C EFI		equ 0EFh 	;EFI System partition on an MBR disk 
+			      C 
+ = 0080			      C PTE_BOOTABLE EQU 80h
+ = 00AA			      C PTE_EXTENDED EQU 0AAh
+			      C CYLSEC record Cylinder:10,Sector:6
+			      C 
+ 0010			      C PARTITION_TABLE_ENTRY struc
+ 0000  00		      C 	bte_bootable		db	?
+ 0001  00		      C 	bte_starthead		db	?
+ 0002  0000		      C 	bte_startsector		dw	?	     
+ 0004  00		      C 	bte_system			db	?
+ 0005  00		      C 	bte_endhead			db	?
+ 0006  0000		      C 	bte_endsector		dw	?
+ 0008  00000000		      C 	bte_relativesector	dd	?
+ 000C  00000000		      C 	bte_totalsector		dd	?
+			      C PARTITION_TABLE_ENTRY ends
+			      C 
+ 001A			      C EXT_PARTITION struc
+ 0000  00 00 0000 00 00	      C   	EPpte		PARTITION_TABLE_ENTRY <>
+       0000 00000000
+       00000000
+ 0010  00000000		      C 	EPStartLBA			dd ?
+ 0014  00000000		      C 	EPEndLBA			dd ?
+ 0018  00		      C 	EPbootable			db ?
+ 0019  00		      C 	EPDrive				db ?
+			      C EXT_PARTITION ends
+			      C 
+ 0083			      C PARTITION_INFO struc
+ 0000  00 00 0000 00 00	      C   	PIpte		PARTITION_TABLE_ENTRY <>
+       0000 00000000
+       00000000
+ 0010  00000000		      C 	PIStartLBA			dd ?
+ 0014  00000000		      C 	PIEndLBA			dd ?
+ 0018  00		      C 	PIbootable			db ?
+ 0019  00		      C 	PIDrive				db ?
+ 001A  00		      C 	PIExtended			db ?
+ 001B  0004 [		      C    	PIEParts			EXT_PARTITION 4 DUP(<>)
+        00 00 0000 00 00
+        0000 00000000
+        00000000 00000000
+        00000000 00 00
+       ]
+			      C PARTITION_INFO	ends
+			      C ;
+			      C ;--- drive info
+			      C ;
+ = 0055			      C DIEXTENDED		equ	055h
+ 0223			      C DriveInfo	STRUC
+ 0000  00		      C 	DIid			db	?
+ 0001  00		      C 	DIHeads			db	?		
+ 0002  00		      C 	DIExtend		db	?
+ 0003  00		      C 	DISectors		db	?
+ 0004  00		      C 					db	?
+ 0005  0000		      C 	DICylinders		dw  ?
+ 0007  00000000		      C 	DIFreeSect		dd	?
+ 000B  00000000		      C 	DITotSect		dd	?
+ 000F  00000000		      C    	DIExtSize1		dd  ?
+ 0013  00000000		      C    	DIExtSize		dd  ?
+ 0017  0004 [		      C    	DIPartTab1		PARTITION_INFO 4 DUP (<>)
+        00 00 0000 00 00
+        0000 00000000
+        00000000 00000000
+        00000000 00 00 00
+        0004 [
+	 00 00 0000 00 00
+	 0000 00000000
+	 00000000
+	 00000000
+	 00000000 00 00
+	]
+			      C 
+			      C DriveInfo	ENDS
+			      C ;
+			      C ; --- BIOS disk parameter table ---
+			      C ;
+ 0010			      C BiosDrvTab	STRUC
+ 0000  0000		      C 	BDTCylinders	dw	?
+ 0002  00		      C 	BDTHeads		db	?
+ 0003  0000		      C 					dw	?
+ 0005  0000		      C 	BDTPrecomp		dw	?
+ 0007  00		      C 	BDTECC			db	?
+ 0008  00		      C 	BDTCtrl			db	?
+ 0009  00		      C 					db	?
+ 000A  0000		      C 					dw	?
+ 000C  0000		      C 	BDTLanding		dw	?
+ 000E  00		      C 	BDTSectors		db	?
+ 000F  00		      C 					db	?		
+			      C BiosDrvTab ENDS
+			      C ;
+			      C ; --- BIOS extended disk parameter table
+			      C ;
+ 001E			      C ExtBiosDrvTab STRUC
+ 0000  0000		      C 	EBDTBuffSz		dw	?
+ 0002  0000		      C 	EBDTInfo		dw	?
+ 0004  00000000		      C 	EBDTCylinders	dd	?
+ 0008  00000000		      C 	EBDTHeads		dd	?
+ 000C  00000000		      C 	EBDTSectors		dd	?
+ 0010  00000000		      C 	EBDTTotSect 	dd	?
+ 0014  00000000		      C 	EBDTTotSect1	dd	?
+ 0018  0000		      C 	EBDTSectTrk		dw	?
+ 001A  00000000		      C 	EBDTEDD			dd	?				   	
+			      C ExtBiosDrvTab ENDS
+			      C ;
+			      C ;  --- entended disk address packet
+			      C ;
+ 0018			      C ExtBiosDiskAddrPkt STRUC
+ 0000  00		      C 	EBDAPSz			db	?
+ 0001  00		      C 	EBDAPres1		db	?
+ 0002  00		      C 	EBDAPBlocks		db	?
+ 0003  00		      C 	EBDAPres2		db	?
+ 0004  0000		      C 	EBDAPLowPtr		dw	?
+ 0006  0000		      C 	EBDAPHighPtr	dw	?
+ 0008  00000000		      C 	EBDAPLBAlow		dd	?
+ 000C  00000000		      C 	EBDAPLBAhigh	dd	?
+ 0010  00000000		      C 	EBDAPFlatAdr1	dd	?
+ 0014  00000000		      C 	EBDAPFlatAdr2	dd	?
+			      C ExtBiosDiskAddrPkt ENDS
+			      C 	
+			      C ;
+			      C ; --- vesa info
+			      C ;
+ 0200			      C VgaInfoBlock    STRUC
+ 0000   0001 [		      C       VESASignature   db   'VESA'      ; 4 signature bytes 
+	 56 45 53 41
+	]
+ 0004  0000		      C       VESAVersion     dw   ?           ; VESA version number
+ 0006  00000000		      C       OEMStringPtr    dd   ?           ; Pointer to OEM string
+ 000A   0004 [		      C       Capabilities    db   4 dup(?)    ; capabilities of the video environment
+	 00
+	]
+ 000E  00000000		      C       VideoModePtr    dd   ?           ; pointer to supported Super VGA modes
+ 0012  0000		      C       TotalMemory     dw   ?           ; Number of 64kb memory blocks on board
+ 0014   00EC [		      C       Reserved        db   236 dup(?)  ; Remainder of VgaInfoBlock
+	 00
+	]
+ 0100   0100 [		      C 	  OemData		  db   256 dup(?)  ;
+	 00
+	]
+			      C VgaInfoBlock    ENDS
+			      C 
+				include DispUtl.inc
+			      C  include vcontex.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C  include video.inc
+			      C ;***********************************************************
+			      C ;  Copyright 2005 Greg Honsa
+			      C ;
+			      C ;***********************************************************
+			      C 
+			      C 
+ 0200			      C VBEINFO struc
+ 0000   0001 [		      C    vbesignature 	db "VESA"		; // VBE Signature
+	 56 45 53 41
+	]
+ 0004  0000		      C    vbeversion		dw	?        	; // VBE Version
+ 0006  00000000		      C    oemstringptr 	dd	?			; // Pointer to OEM String
+ 000A   0004 [		      C    capabilities  	db 4 dup (?)   	; // Capabilities of graphics cont.
+	 00
+	]
+ 000E  00000000		      C    videomodeptr 	dd	? 			; // Pointer to Video Mode List
+ 0012  0000		      C    totalmemory		dw	?			; // number of 64Kb memory blocks
+ 0014  0000		      C    oemsoftwarerev	dw	?			; // VBE implementation Software revision
+ 0016  00000000		      C    oemvendornameptr	dd	?			; // Pointer to Vendor Name String
+ 001A  00000000		      C    oemproductnameptr dd	?			; // Pointer to Product Name String
+ 001E  00000000		      C    oemproductrevptr	dd	?			; // Pointer to Product Revision String
+ 0022   00DE [		      C    reserved 		db 222 dup (?)			; // Reserved for VBE implementation scratch area
+	 00
+	]
+ 0100   0100 [		      C    oemdata			db 256 dup (?)	; // Data Area for OEM Strings
+	 00
+	]
+			      C VBEINFO	ends
+			      C 
+ 0100			      C MODEINFO struc
+			      C 
+			      C    ;// Mandatory information for all VBE revision
+			      C 
+ 0000  0000		      C    modeattributes	dw	?			; // Mode attributes
+ 0002  00		      C    winaattributes	db	?			; // Window A attributes
+ 0003  00		      C    winbattributes	db	?			; // Window B attributes
+ 0004  0000		      C    wingranularity	dw	?			; // Window granularity
+ 0006  0000		      C    winsize			dw	?			; // Window size
+ 0008  0000		      C    winasegment		dw	?			; // Window A start segment
+ 000A  0000		      C    winbsegment		dw	?			; // Window B start segment
+ 000C  00000000		      C    winfuncptr		dd	?			; // pointer to window function
+ 0010  0000		      C    bytesperscanline	dw	?			; // Bytes per scan line
+			      C 
+			      C    ;// Mandatory information for VBE 1.2 and above
+			      C 
+ 0012  0000		      C    xresolution		dw	?			; // Horizontal resolution in pixel or chars
+ 0014  0000		      C    yresolution		dw	?			; // Vertical resolution in pixel or chars
+ 0016  00		      C    xcharsize		db	?			; // Character cell width in pixel
+ 0017  00		      C    ycharsize		db	?			; // Character cell height in pixel
+ 0018  00		      C    numberofplanes	db	?			; // Number of memory planes
+ 0019  00		      C    bitsperpixel		db	?			; // Bits per pixel
+ 001A  00		      C    numberofbanks	db	?			; // Number of banks
+ 001B  00		      C    memorymodel		db	?			; // Memory model type
+ 001C  00		      C    banksize			db	?			; // Bank size in KB
+ 001D  00		      C    numberofimagepages db ?			; // Number of images
+ 001E  00		      C    reserved1		db	?			; // Reserved for page function
+			      C 
+			      C    ;// Direct Color fields (required for direct/6 and YUV/7 memory models)
+			      C 
+ 001F  00		      C    redmasksize		db	?			; // Size of direct color red mask in bits
+ 0020  00		      C    redfieldposition	db	?			; // Bit position of lsb of red bask
+ 0021  00		      C    greenmasksize	db	?			; // Size of direct color green mask in bits
+ 0022  00		      C    greenfieldposition db	?		; // Bit position of lsb of green bask
+ 0023  00		      C    bluemasksize		db	?			; // Size of direct color blue mask in bits
+ 0024  00		      C    bluefieldposition db ?			; // Bit position of lsb of blue bask
+ 0025  00		      C   rsvdmasksize		db	?			; // Size of direct color reserved mask in bits
+ 0026  00		      C    rsvdfieldposition db	?			; // Bit position of lsb of reserved bask   
+ 0027  00		      C    directcolormodeinfo db ?			; // Direct color mode attributes
+			      C 
+			      C    ;// Mandatory information for VBE 2.0 and above
+			      C 
+ 0028  00000000		      C    physbaseptr		dd	?			; // Physical address for flat frame buffer
+ 002C  00000000		      C    offscreenmemoffset dd ?			; // Pointer to start of off screen memory
+ 0030  0000		      C    offscreenmemsize dw ?			; // Amount of off screen memory in 1Kb units
+ 0032   00CE [		      C    reserved2 db 206 dup (?)			; // Remainder of ModeInfoBlock
+	 00
+	]
+			      C 
+			      C MODEINFO ends
+			      C 
+ 0006			      C VGACOLOR struc
+ 0000  0000		      C     red		dw	?
+ 0002  0000		      C     green	dw	?
+ 0004  0000		      C     blue	dw	?
+			      C VGACOLOR ends
+			      C 
+			      C 
+			      C 
+			      C 
+ 0338			      C VDCONTX	struc
+			      C 	;
+			      C 	;	--- function pointers --- 
+			      C 	;
+ 0000  0000		      C 	Create			dw	?	; Create function pointer
+ 0002  0000		      C 	Destroy			dw	?	; Destroy function
+ 0004  0000		      C 	Clear			dw	?	;
+ 0006  0000		      C 	getNumPages		dw	?	;
+ 0008  0000		      C     setActivePage	dw	?	;  
+ 000A  0000		      C     setVisiblePage	dw	?	;
+ 000C  0000		      C     pixel			dw	?	;	(int16 x, int16 y, int16 color);
+ 000E  0000		      C     fillRect		dw	?	;  (int16 x, int16 y, int16 width, int16 height, int16 color);
+ 0010  0000		      C 	drawRect		dw	?
+ 0012  0000		      C 	drawChar		dw	?	;	
+ 0014  0000		      C 	drawLine		dw	?	;
+ 0016  0000		      C 	drawString		dw	?	;
+ 0018  0000		      C 	createWindow	dw	?	;
+ 001A  0000		      C 	createbutton	dw	?	;
+			      C 
+ 001C   0001 [		      C 	vbi			VBEINFO <>
+	 56 45 53 41
+	] 0000 00000000
+        0004 [
+	 00
+	] 00000000 0000
+        0000 00000000
+        00000000 00000000
+        00DE [
+	 00
+	]
+        0100 [
+	 00
+	]
+ 021C  0000 00 00 0000	      C 	vmi 		MODEINFO <>
+        0000 0000 0000
+        00000000 0000
+        0000 0000 00 00
+        00 00 00 00 00 00
+        00 00 00 00 00 00
+        00 00 00 00
+        00000000 00000000
+        0000
+        00CE [
+	 00
+	]
+ 031C  0000		      C 	origMode		dw	?	;
+ 031E  0000		      C 	currentMode		dw	?	;
+ 0320  0000		      C 	currentBank		dw	?	;
+ 0322  0000		      C 	banksPerPage	dw	?	;
+ 0324  0000		      C 	activePage		dw	?	;
+ 0326  0000		      C 	activePageOffset dw ?	;
+ 0328  0000		      C 	visiblePage		dw	?	;
+ 032A  0000		      C 	error			dw	?	;
+ 032C  0000		      C 	maxx			dw	?	;
+ 032E  0000		      C 	maxy			dw	?	;
+ 0330  0000		      C 	vwidth			dw	?	;
+ 0332  0000		      C 	vheight			dw	?	;
+ 0334  0000		      C 	fontSeg			dw	?
+ 0336  0000		      C 	fontOff			dw	?
+			      C VDCONTX ends
+			      C 
+			      C 
+			      C 
+ 0014			      C GWIND	struc
+ 0000  0000		      C 	xorg	dw	?			; x start
+ 0002  0000		      C 	yorg	dw	?			; ystart
+ 0004  0000		      C 	xend	dw	?
+ 0006  0000		      C 	yend	dw	?
+ 0008  0000		      C 	xsiz	dw	?			; size x
+ 000A  0000		      C 	ysiz	dw	?			; size y
+ 000C  0000		      C 	bcolor	dw	?			; background window color
+ 000E  0000		      C 	ccolor	dw	?			; character color
+ 0010  0000		      C 	currx	dw	?			; current character position
+ 0012  0000		      C 	curry	dw	?
+			      C GWIND	ends
+			      C 
+			      C 
+			      C ;
+			      C ;
+			      C ;
+			      C extrn init_vid:near
+			      C extrn kill_vid:near
+			      C extrn printChar:near
+			      C extrn printHexNibble:near
+			      C extrn printHexByte:near
+			      C extrn printHexWord:near
+			      C extrn printHexDWord:near
+			      C extrn println:near
+			      C extrn print_size:near
+			      C extrn showZero:near
+			      C extrn GetChar:near
+			      C extrn GetLine:near
+			      C extrn GetNextParam:near
+			      C extrn ascii2hex:near
+			      C extrn displayBuffer:near
+			      C extrn gwDrives:near
+			      C extrn vidcontext:near
+			      C extrn activeWindow:near
+			      C extrn init_command:near
+			      C extrn init_sector:near
+			      C 
+
+				extrn DriveInfoCollect:near
+				extrn DriveInfoDisplay:near
+				extrn displayDI:NEAR
+				extrn ShowSector:near
+				extrn ZapDrive:near
+				extrn ZapPartition:near
+				extrn  lastByte:near
+				extrn BootPartition:near
+				extrn CreatePartition:near
+				extrn dinf:near
+
+ 0000				_Text SEGMENT PUBLIC USE16					  
+				  assume CS:_Text, DS:_Text
+				.286
+				IFDEF BOOTABLE 	  ; change to 1 for a bootable image
+				;
+				; -- if bootable, only the first 512 bytes gets read in!
+				;    this code here fits in the first 512 bytes and will read 
+				;    in the rest of the code... 
+				;
+				  org 0
+				public start
+ 0000				start:
+ 0000  EA			  db 0EAh  					;jmp far SEG:OFS    ;Currently we are at 0:7C00
+ 0001  0034 R 07C0		  dw OFFSET Begin, 7C0h    	;This makes us be at 7C0:0
+				;
+				; --- small data strings ---
+				;
+ 0005 00			bootdrive	db	?
+ 0006 72 65 61 64 69 6E		bmessg 		db "reading booter code",0ah,0dh,0
+        67 20 62 6F 6F 74
+        65 72 20 63 6F 64
+        65 0A 0D 00
+ 001C 2A 20 45 52 52 4F		bemessg 	db "* ERROR* reading booter",0
+        52 2A 20 72 65 61
+        64 69 6E 67 20 62
+        6F 6F 74 65 72 00
+				;
+				; --- resume at 7c0:Begin
+				;
+ 0034				Begin: 
+ 0034  0E			  	push 	cs	   			; set all segmens the same...
+ 0035  1F			 	pop 	ds     			; 
+ 0036  0E			 	push	cs
+ 0037  07				pop		es
+				;
+				;--- find out where we are booting from
+				;
+ 0038  88 16 0005 R			mov		bootdrive,dl
+				; assume floppy 0 now
+				;
+				;   read in the rest of the booter
+				;
+ 003C  BE 0006 R			mov	si,offset bmessg
+ 003F  E8 0027				call	println1
+
+ 0042  BB 0200				mov	bx,200h
+ 0045  B6 00				mov	dh,00h
+ 0047  8A 16 0005 R			mov	dl,bootdrive
+ 004B  B8 0000 E			mov	ax,offset lastByte
+ 004E  C1 E8 09				shr ax,9
+ 0051  FE C0				inc	al
+ 0053  B4 02				mov ah,2
+ 0055  B9 0002			   	mov	cx,02
+
+ 0058  CD 13				int 13h
+ 005A  73 08				jnc	ok
+					; -- something went wrong -- 
+ 005C  BE 001C R			mov	si,offset bemessg
+ 005F  E8 0007				call	println1
+ 0062  EB 03				jmp	getout
+
+ 0064				ok:
+ 0064  E9 0199				jmp	cont
+
+
+ 0067				 getout:
+ 0067  CD 18				int 18h
+
+				;**********************************************************
+				;  println ds:si -> null terminated string
+				;
+				;**********************************************************
+ 0069				println1:
+ 0069  50				push	ax
+ 006A  1E				push	ds
+ 006B  56				push	si
+ 006C  B4 0E				mov	ah,0eh
+ 006E				charloop1:
+ 006E  AC				lodsb
+ 006F  0A C0				or	al,al
+ 0071  74 04				jz	chardone1
+ 0073  CD 10				int	10h
+ 0075  EB F7				jmp	charloop1
+ 0077				chardone1:
+ 0077  5E			 	pop	si
+ 0078  1F				pop	ds
+ 0079  58				pop	ax
+ 007A  C3				ret
+
+				org 510    ; Make the file 512 bytes long
+ 01FE  AA55			  dw 0AA55h  ; Add the boot signature
+
+				org 200h
+ 0200				cont:
+				ELSE
+				ENDIF
+				;
+				; --- The Real Start!!! ---
+				;
+				;
+				; -- say hello --
+				;
+
+ 0200  E8 0000 E			call	init_vid
+					
+ 0203  E8 0000 E		 	call	DriveInfoCollect
+
+ 0206  E8 0000 E			call 	DriveInfoDisplay
+
+
+				;	mov		si,offset sCommands
+				;	call	println
+				;
+				;   --- command loop ---
+				;
+				public cmdloop
+ 0209				cmdloop:
+ 0209  E8 0000 E				call	init_command
+
+ 020C  B0 3E					mov		al,'>'
+ 020E  E8 0000 E				call	printChar
+ 0211  BB 04F9 R				mov		bx,offset LineBuff
+ 0214  B9 0050					mov		cx,80
+ 0217  E8 0000 E				call 	getLine				; getLine bx-> buffer cx->buffsz
+ 021A  72 47					jc		cerror
+ 021C  8B F3					mov		si,bx				; returns num characters in cx
+
+ 021E  AC					lodsb						; get the command
+ 021F  3C 62					cmp		al,'b'			  	; valid commands:
+ 0221  74 4A					jz		bootcmd			  	; b -Boot,drv,partition  ex:b,0,1 
+ 0223  3C 42					cmp		al,'B'			  	; sb = show boot devices
+ 0225  74 46					jz		bootcmd			  	; sd,drv = show drive info drv=drive
+													; ss,drv,lba 	
+ 0227  3C 73					cmp		al,'s'	
+ 0229  75 03 E9 00B0				jz		showcmd				; 
+ 022E  3C 53					cmp		al,'S'	
+ 0230  75 03 E9 00A9				jz		showcmd
+
+ 0235  3C 5A					cmp		al,'Z'				; Zap command
+ 0237  75 03 E9 01E1				jz 		ZapCmd
+ 023C  3C 7A					cmp		al,'z'
+ 023E  75 03 E9 01DA				jz		ZapCmd
+
+ 0243  3C 43					cmp		al,'C'				; Zap command
+ 0245  75 03 E9 014E				jz 		CreateCmd
+ 024A  3C 63					cmp		al,'c'
+ 024C  75 03 E9 0147				jz		CreateCmd
+						
+ 0251  3C 3F					cmp		al,'?'
+ 0253  74 0C					jz		shcmds
+
+ 0255  3C 71					cmp		al,'q'
+ 0257  74 04					jz		quitcmd
+ 0259  3C 51					cmp		al,'Q'
+ 025B  75 06					jnz		cerror
+ 025D				quitcmd:
+ 025D  E8 0000 E				call	kill_vid
+ 0260  C3					ret
+ 0261				shcmds:
+						;mov		si,offset sCommands
+						;call	println
+ 0261  EB A6					jmp		cmdloop
+ 0263				cerror:	
+ 0263  BE 05CF R				mov		si,offset sWhat
+ 0266  E8 0000 E				call	println
+					
+ 0269  EB 9E					jmp		cmdloop
+				;
+				;  --- Boot command  "b drive partition" ---
+				;
+ 026B 00			bootdriveid	db	0
+ 026C 00			bootpart	db	0
+ 026D				bootcmd:
+
+ 026D  AC					lodsb					; get next byte , should be white space
+ 026E  3C 20					cmp		al,' '
+ 0270  74 02					jz		bok1
+ 0272  EB EF					jmp		cerror		
+ 0274				bok1:		
+
+ 0274  E8 0000 E				call	GetNextParam	; 1st param is drive id 
+ 0277  0B DB					or		bx,bx			;
+ 0279  74 E8					jz		cerror		
+ 027B  56					push	si
+ 027C  8B F3					mov		si,bx	
+ 027E  E8 0000 E				call	ascii2hex		; convert from ascii
+ 0281  5E					pop		si	
+				.386
+ 0282  66| 0B D2				or		edx,edx			; check value in range
+				.286
+ 0285  75 DC					jnz		cerror
+				.386
+ 0287  66| 3D 00000090				cmp		eax,90h
+				.286
+ 028D  7F D4					jg		cerror
+ 028F  A2 026B R				mov		bootdriveid,al	; save boot id
+
+ 0292  E8 0000 E				call	GetNextParam	; next parameter is the partition to boot
+ 0295  0B DB					or		bx,bx
+ 0297  74 CA					jz		cerror		
+ 0299  56					push	si
+ 029A  8B F3					mov		si,bx	
+ 029C  E8 0000 E				call	ascii2hex
+ 029F  5E					pop		si	
+				.386
+ 02A0  66| 0B D2				or		edx,edx			 ; check for in range
+				.286																							
+ 02A3  75 BE					jnz		cerror
+				.386
+ 02A5  66| 83 F8 04				cmp		eax,4
+				.286
+ 02A9  7F B8					jg		cerror
+ 02AB  A2 026C R				mov		bootpart,al
+
+				;
+				;   --- display the boot command
+				;
+ 02AE  56					push	si
+ 02AF  BE 05A8 R				mov		si,offset sLF
+ 02B2  E8 0000 E				call	println
+ 02B5  BE 0564 R				mov		si,offset sBootCmd
+ 02B8  E8 0000 E				call	println
+ 02BB  5E					pop		si
+ 02BC  A0 026B R				mov		al, bootdriveid
+ 02BF  E8 0000 E				call	printHexByte
+ 02C2  B0 2C					mov		al,','
+ 02C4  E8 0000 E				call	printChar
+ 02C7  A0 026C R				mov		al, bootpart
+ 02CA  E8 0000 E				call	printHexByte
+				 
+ 02CD  BE 05A8 R				mov		si,offset sLF
+ 02D0  E8 0000 E				call	println
+
+				;
+				;   --- here we should call load the boot sector and launch it
+				;
+						; we need to get LBA from the partition info for the drive
+ 02D3  8A E0					mov		ah,al
+ 02D5  A0 026B R				mov		al,bootdriveid
+
+ 02D8  E8 0000 E				call	BootPartition		
+
+
+ 02DB  E9 FF2B					jmp		cmdloop
+				;
+				;   --- Show commands ---
+				;
+				;	ss - show sector , drive, LBA sector #
+				;	sd - show drive info , drive 
+				;					
+ 02DE				showcmd:
+						;push	si
+						;mov		si,offset sLF
+						;call	println
+						;mov		si,offset sShowCmd
+						;call	println
+						;pop		si
+
+ 02DE  AC					lodsb				; get next byte what to show
+
+ 02DF  3C 64					cmp		al,'d'		; show drive info
+ 02E1  74 10					jz		showDI
+ 02E3  3C 44					cmp		al,'D'
+ 02E5  74 0C					jz		showDI
+
+ 02E7  3C 73					cmp		al,'s'		; show sector
+ 02E9  74 4D					jz		showSect
+ 02EB  3C 53					cmp		al,'S'
+ 02ED  74 49					jz		showSect
+ 02EF  E9 FF71					jmp		cerror
+				;
+				;    --- show DriveInfo	1 parameter drive id
+				;
+ 02F2 00			driveid	db	0
+ 02F3				showDI:
+
+ 02F3  AC					lodsb		; get next byte , should be white space
+ 02F4  3C 20					cmp		al,' '
+ 02F6  74 03					jz		sDIok1
+ 02F8  E9 FF68					jmp		cerror		
+
+ 02FB				sDIok1:	
+
+ 02FB  E8 0000 E				call	GetNextParam
+ 02FE  0B DB					or		bx,bx
+ 0300  75 03 E9 FF5E				jz		cerror		
+ 0305  56					push	si
+ 0306  8B F3					mov		si,bx	
+ 0308  E8 0000 E				call	ascii2hex		; convert from ascii
+ 030B  5E					pop		si	
+				.386
+ 030C  66| 0B D2				or		edx,edx			; check value in range
+				.286
+ 030F  74 03 E9 FF4F				jnz		cerror
+				.386
+ 0314  66| 3D 00000090				cmp		eax,90h
+				.286
+ 031A  7E 03 E9 FF44				jg		cerror
+ 031F  A2 02F2 R				mov		driveid,al	; save boot id
+				;
+				;		set the active window to drives...
+				;		
+ 0322  50					push	ax
+ 0323  B8 0000 E				mov		ax,offset gwDrives
+ 0326  A3 0000 E				mov		word ptr activewindow,ax
+ 0329  58					pop		ax
+ 032A  E8 0000 E				call 	displayDI 
+				;	
+ 032D  E9 FED9					jmp		cmdloop
+					
+
+				;
+				;	--- show Sector 2 parameters drive id, LBA of sector---
+				;
+ 0330 00000000			sectl	dd	0			; lba of sectot
+ 0334 00000000			secth	dd	0
+
+ 0338				showSect:
+ 0338  E8 0000 E				call	init_sector
+ 033B  AC					lodsb		; get next byte , should be white space
+ 033C  3C 20					cmp		al,' '
+ 033E  74 03					jz		ssok1
+ 0340  E9 FF20					jmp		cerror		
+ 0343				ssok1:		
+
+ 0343  E8 0000 E				call	GetNextParam
+ 0346  0B DB					or		bx,bx
+ 0348  75 03 E9 FF16				jz		cerror		
+ 034D  56					push	si
+ 034E  8B F3					mov		si,bx	
+ 0350  E8 0000 E				call	ascii2hex		; convert from ascii
+ 0353  5E					pop		si	
+				.386
+ 0354  66| 0B D2				or		edx,edx			; check value in range
+				.286
+ 0357  74 03 E9 FF07				jnz		cerror
+				.386
+ 035C  66| 3D 00000090				cmp		eax,90h
+				.286
+ 0362  7E 03 E9 FEFC				jg		cerror
+ 0367  0C 80					or		al,80h			; hack convert
+ 0369  A2 02F2 R				mov		driveid,al	; save boot id
+				;
+				;   --- get the LBA
+				;
+ 036C  E8 0000 E				call	GetNextParam
+ 036F  0B DB					or		bx,bx
+ 0371  75 03 E9 FEED				jz		cerror	
+ 0376  56					push	si
+ 0377  8B F3					mov		si,bx	
+ 0379  E8 0000 E				call	ascii2hex
+ 037C  5E					pop		si	
+				.386
+ 037D  66| A3 0330 R				mov		sectl,eax		;save off the LBA
+ 0381  66| 89 16 0334 R				mov		secth,edx
+				.286
+				;
+				;    --- we have the info, display the sector...
+				;			
+ 0386  E8 0000 E				call	showZero
+ 0389  8A 0E 02F2 R				mov		cl,driveid
+ 038D  E8 0000 E				call	ShowSector
+ 0390  E9 FE76					jmp		cmdloop
+				;
+				;   --- Create commands
+				;   CP Create Partition, drive, size, type  ex: CP 0 10000 10 
+				;
+ 0393 00			cpDrvId	db	?
+ 0394 00000000			cpSize	dd	?
+ 0398				CreateCmd:
+ 0398  56					push	si
+ 0399  BE 05A8 R				mov		si,offset sLF
+ 039C  E8 0000 E				call	println
+ 039F  BE 057C R				mov		si,offset sCreateCmd
+ 03A2  E8 0000 E				call	println
+ 03A5  5E					pop		si
+ 03A6  AC					lodsb				; get next byte what to show
+
+ 03A7  3C 70					cmp		al,'p'		; Zap drive info
+ 03A9  74 07					jz		CreatePart
+ 03AB  3C 50					cmp		al,'P'
+ 03AD  74 03 E9 FEB1				jnz		cerror
+ 03B2				CreatePart:
+ 03B2  AC					lodsb					; get next byte , should be white space
+ 03B3  3C 20					cmp		al,' '
+ 03B5  74 03					jz		cpok1
+ 03B7  E9 FEA9					jmp		cerror		
+ 03BA				cpok1:		
+
+ 03BA  E8 0000 E				call	GetNextParam	; 1st param is drive id 
+ 03BD  0B DB					or		bx,bx			;
+ 03BF  75 03 E9 FE9F				jz		cerror		
+ 03C4  56					push	si
+ 03C5  8B F3					mov		si,bx	
+ 03C7  E8 0000 E				call	ascii2hex		; convert from ascii
+ 03CA  5E					pop		si	
+				.386
+ 03CB  66| 0B D2				or		edx,edx			; check value in range
+				.286
+ 03CE  74 03 E9 FE90				jnz		cerror
+				.386
+ 03D3  66| 3D 00000090				cmp		eax,90h
+				.286
+ 03D9  7E 03 E9 FE85				jg		cerror
+ 03DE  A2 0393 R				mov		cpDrvId,al		; save disk id
+
+ 03E1  E8 0000 E				call	GetNextParam	; next parameter is the partition size
+ 03E4  0B DB					or		bx,bx
+ 03E6  75 03 E9 FE78				jz		cerror		
+ 03EB  56					push	si
+ 03EC  8B F3					mov		si,bx	
+ 03EE  E8 0000 E				call	ascii2hex		; convert from ascii
+ 03F1  5E					pop		si
+						.386	
+ 03F2  66| A3 0394 R				mov		cpSize,eax
+						.286		
+ 03F6  E8 0000 E				call	GetNextParam	; next parameter is the partition size
+ 03F9  0B DB					or		bx,bx
+ 03FB  75 03 E9 FE63				jz		cerror		
+ 0400  56					push	si
+ 0401  8B F3					mov		si,bx	
+ 0403  E8 0000 E				call	ascii2hex		; convert from ascii
+ 0406  5E					pop		si	
+ 0407  8B D8					mov		bx,ax
+
+ 0409  BF 0000 E				mov		di,offset dinf
+ 040C  B8 0223					mov		ax,SIZEOF DriveInfo
+ 040F  F6 26 0393 R				mul		cpDrvId
+ 0413  03 F8					add		di,ax
+						.386
+ 0415  66| 8B 16 0394 R				mov		edx,cpSize
+						.286
+
+ 041A  E8 0000 E				call	CreatePartition						
+
+				;
+				;  --- ZAP commands ---
+				;
+				;	ZD Zap Drive	 ex: ZD 0
+				;   ZP Zap Partition ex: ZP 0 1
+ 041D				ZapCmd:
+ 041D  56					push	si
+ 041E  BE 05A8 R				mov		si,offset sLF
+ 0421  E8 0000 E				call	println
+ 0424  BE 0577 R				mov		si,offset sZapCmd
+ 0427  E8 0000 E				call	println
+ 042A  5E					pop		si
+
+ 042B  AC					lodsb				; get next byte what to show
+
+ 042C  3C 64					cmp		al,'d'		; Zap drive info
+ 042E  74 11					jz		zapDrv
+ 0430  3C 44					cmp		al,'D'
+ 0432  74 0D					jz		zapDrv
+
+ 0434  3C 70					cmp		al,'p'		; Zap Partition
+ 0436  74 6D					jz		zapPart
+ 0438  3C 50					cmp		al,'P'
+ 043A  74 69					jz		zapPart
+ 043C  E9 FE24					jmp		cerror
+
+
+ 043F 00			ZapDriveid		db	0
+ 0440 00			ZapPartitionid	db	0
+				public zapDrv
+ 0441				zapDrv:
+ 0441  AC					lodsb					; get next byte , should be white space
+ 0442  3C 20					cmp		al,' '
+ 0444  74 03					jz		zdok1
+ 0446  E9 FE1A					jmp		cerror		
+ 0449				zdok1:		
+
+ 0449  E8 0000 E				call	GetNextParam	; 1st param is drive id 
+ 044C  0B DB					or		bx,bx			;
+ 044E  75 03 E9 FE10				jz		cerror		
+ 0453  56					push	si
+ 0454  8B F3					mov		si,bx	
+ 0456  E8 0000 E				call	ascii2hex		; convert from ascii
+ 0459  5E					pop		si	
+				.386
+ 045A  66| 0B D2				or		edx,edx			; check value in range
+				.286
+ 045D  74 03 E9 FE01				jnz		cerror
+				.386
+ 0462  66| 3D 00000090				cmp		eax,90h
+				.286
+ 0468  7E 03 E9 FDF6				jg		cerror
+ 046D  A2 043F R				mov		ZapDriveid,al	; save boot id
+ 0470  8A C8					mov		cl,al
+
+ 0472  BE 0596 R				mov		si, offset sDrv
+ 0475  E8 0000 E				call	println
+ 0478  E8 0000 E				call	printHexNibble
+ 047B  BE 0551 R				mov		si,offset sConfirm
+ 047E  E8 0000 E				call	println
+ 0481  BB 04F9 R				mov		bx,offset LineBuff
+ 0484  B9 0050					mov		cx,80
+ 0487  E8 0000 E				call 	getLine				; getLine bx-> buffer cx->buffsz
+ 048A  BE 05A8 R				mov		si,offset sLF
+ 048D  E8 0000 E				call	println
+ 0490  8B F3					mov		si,bx				; returns num characters in cx
+
+ 0492  AC					lodsb						; get the command
+ 0493  3C 79					cmp		al,'y'			  	; valid commands:
+ 0495  74 04					jz		zpdrv			  	; b -Boot,drv,partition  ex:b,0,1 
+ 0497  3C 59					cmp		al,'Y'			  	; sb = show boot devices
+ 0499  75 07					jnz		nodzap			  	; sd,drv = show drive info drv=drive
+
+ 049B				zpdrv:
+ 049B  8A 0E 043F R				mov		cl,ZapDriveid
+ 049F  E8 0000 E				call	ZapDrive
+ 04A2				nodzap:
+ 04A2  E9 FD64					jmp		cmdloop
+
+ 04A5				zapPart:
+ 04A5  AC					lodsb					; get next byte , should be white space
+ 04A6  3C 20					cmp		al,' '
+ 04A8  74 03					jz		zok1
+ 04AA  E9 FDB6					jmp		cerror		
+ 04AD				zok1:		
+
+ 04AD  E8 0000 E				call	GetNextParam	; 1st param is drive id 
+ 04B0  0B DB					or		bx,bx			;
+ 04B2  75 03 E9 FDAC				jz		cerror		
+ 04B7  56					push	si
+ 04B8  8B F3					mov		si,bx	
+ 04BA  E8 0000 E				call	ascii2hex		; convert from ascii
+ 04BD  5E					pop		si	
+				.386
+ 04BE  66| 0B D2				or		edx,edx			; check value in range
+				.286
+ 04C1  74 03 E9 FD9D				jnz		cerror
+				.386
+ 04C6  66| 3D 00000090				cmp		eax,90h
+				.286
+ 04CC  7E 03 E9 FD92				jg		cerror
+ 04D1  A2 043F R				mov		ZapDriveid,al	; save boot id
+
+ 04D4  E8 0000 E				call	GetNextParam	; next parameter is the partition to boot
+ 04D7  0B DB					or		bx,bx
+ 04D9  75 03 E9 FD85				jz		cerror		
+ 04DE  56					push	si
+ 04DF  8B F3					mov		si,bx	
+ 04E1  E8 0000 E				call	ascii2hex
+ 04E4  5E					pop		si	
+				.386
+ 04E5  66| 0B D2				or		edx,edx			 ; check for in range
+				.286																							
+ 04E8  74 03 E9 FD76				jnz		cerror
+				.386
+ 04ED  66| 83 F8 04				cmp		eax,4
+				.286
+ 04F1  7E 03 E9 FD6D				jg		cerror
+ 04F6  A2 0440 R				mov		ZapPartitionid,al
+
+
+				;
+				; -- DATA AREA ---
+				;
+
+				;rs1		dd	0
+				;rs2		dd	0
+
+ 04F9   0050 [			LineBuff	db	80	dup (0) 
+	 00
+	]
+ 0549 00000000			rsltbuffl	dd	 0
+ 054D 00000000			rsltbuffh	dd	0
+ 0551 20 41 72 65 20 79		sConfirm	db	" Are you sure? y/n",0
+        6F 75 20 73 75 72
+        65 3F 20 79 2F 6E
+        00
+ 0564 42 6F 6F 74 20 43		sBootCmd	db	"Boot Cmd:",0
+        6D 64 3A 00
+ 056E 53 68 6F 77 43 6D		sShowCmd	db	"ShowCmd:",0
+        64 3A 00
+ 0577 5A 61 70 20 00		sZapCmd		db	"Zap ",0
+ 057C 43 72 65 61 74 65		sCreateCmd  db  "Create Partition ",0
+        20 50 61 72 74 69
+        74 69 6F 6E 20 00
+ 058E 53 65 63 74 6F 72		sSect		db	"Sector ",0
+        20 00
+ 0596 44 72 69 76 65 20		sDrv		db	"Drive ",0
+        00
+ 059D 50 61 72 74 69 74		sPartition  db	"Partition ",0
+        69 6F 6E 20 00
+ 05A8 0A 0D 00			sLF			db 0ah,0dh,0
+
+ 05AB 43 6F 6C 6C 65 63		sStartMsg 	db 	"Collecting boot device parameters",0ah,0dh,0
+        74 69 6E 67 20 62
+        6F 6F 74 20 64 65
+        76 69 63 65 20 70
+        61 72 61 6D 65 74
+        65 72 73 0A 0D 00
+ 05CF 3F 0D 0A 00		sWhat		db	"?",0dh,0ah,0
+ 05D3 0D 0A			sCommands	db	0dh,0ah
+ 05D5  43 6F 6D 6D 61 6E				db	"Command Set: 'sd 0'      = Show Drive idx = drive index ",0dh,0ah
+        64 20 53 65 74 3A
+        20 27 73 64 20 30
+        27 20 20 20 20 20
+        20 3D 20 53 68 6F
+        77 20 44 72 69 76
+        65 20 69 64 78 20
+        3D 20 64 72 69 76
+        65 20 69 6E 64 65
+        78 20 0D 0A
+ 060F  20 20 20 20 20 20				db	"             'ss 0 123 ' = Show Sector idx= drive id lsector number",0dh,0ah
+        20 20 20 20 20 20
+        20 27 73 73 20 30
+        20 31 32 33 20 27
+        20 3D 20 53 68 6F
+        77 20 53 65 63 74
+        6F 72 20 69 64 78
+        3D 20 64 72 69 76
+        65 20 69 64 20 6C
+        73 65 63 74 6F 72
+        20 6E 75 6D 62 65
+        72 0D 0A
+ 0654  20 20 20 20 20 20				db	"             'b 0 0'     = Boot partition drive index partition indx",0dh,0ah
+        20 20 20 20 20 20
+        20 27 62 20 30 20
+        30 27 20 20 20 20
+        20 3D 20 42 6F 6F
+        74 20 70 61 72 74
+        69 74 69 6F 6E 20
+        64 72 69 76 65 20
+        69 6E 64 65 78 20
+        70 61 72 74 69 74
+        69 6F 6E 20 69 6E
+        64 78 0D 0A
+ 069A  20 20 20 20 20 20				db  "             'cp 0 23 6' = Create Partition drive,size,type",0dh,0ah
+        20 20 20 20 20 20
+        20 27 63 70 20 30
+        20 32 33 20 36 27
+        20 3D 20 43 72 65
+        61 74 65 20 50 61
+        72 74 69 74 69 6F
+        6E 20 64 72 69 76
+        65 2C 73 69 7A 65
+        2C 74 79 70 65 0D
+        0A
+ 06D7  20 20 20 20 20 20				db	"             'zd 0'      = Zap Drive idx=drive index",0dh,0ah
+        20 20 20 20 20 20
+        20 27 7A 64 20 30
+        27 20 20 20 20 20
+        20 3D 20 5A 61 70
+        20 44 72 69 76 65
+        20 69 64 78 3D 64
+        72 69 76 65 20 69
+        6E 64 65 78 0D 0A
+ 070D  20 20 20 20 20 20				db  "             'zp 0 1'    = Zap Partition idx=drive index, partition index",0dh,0ah
+        20 20 20 20 20 20
+        20 27 7A 70 20 30
+        20 31 27 20 20 20
+        20 3D 20 5A 61 70
+        20 50 61 72 74 69
+        74 69 6F 6E 20 69
+        64 78 3D 64 72 69
+        76 65 20 69 6E 64
+        65 78 2C 20 70 61
+        72 74 69 74 69 6F
+        6E 20 69 6E 64 65
+        78 0D 0A
+ 0758  20 20 20 20 20 20				db  "             '?'         = show command set",0dh,0ah,0
+        20 20 20 20 20 20
+        20 27 3F 27 20 20
+        20 20 20 20 20 20
+        20 3D 20 73 68 6F
+        77 20 63 6F 6D 6D
+        61 6E 64 20 73 65
+        74 0D 0A 00
+ 0786				 _Text ENDS
+				  END  start
+Microsoft (R) Macro Assembler Version 6.11		    06/17/05 17:03:35
+Binf.asm						     Symbols 2 - 1
+
+
+
+
+Macros:
+
+                N a m e                 Type
+
+OPSIZ  . . . . . . . . . . . . .	Proc
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+BiosDrvTab . . . . . . . . . . .	 0010
+  BDTCylinders . . . . . . . . .	 0000	     Word
+  BDTHeads . . . . . . . . . . .	 0002	     Byte
+  BDTPrecomp . . . . . . . . . .	 0005	     Word
+  BDTECC . . . . . . . . . . . .	 0007	     Byte
+  BDTCtrl  . . . . . . . . . . .	 0008	     Byte
+  BDTLanding . . . . . . . . . .	 000C	     Word
+  BDTSectors . . . . . . . . . .	 000E	     Byte
+DriveInfo  . . . . . . . . . . .	 0223
+  DIid . . . . . . . . . . . . .	 0000	     Byte
+  DIHeads  . . . . . . . . . . .	 0001	     Byte
+  DIExtend . . . . . . . . . . .	 0002	     Byte
+  DISectors  . . . . . . . . . .	 0003	     Byte
+  DICylinders  . . . . . . . . .	 0005	     Word
+  DIFreeSect . . . . . . . . . .	 0007	     DWord
+  DITotSect  . . . . . . . . . .	 000B	     DWord
+  DIExtSize1 . . . . . . . . . .	 000F	     DWord
+  DIExtSize  . . . . . . . . . .	 0013	     DWord
+  DIPartTab1 . . . . . . . . . .	 0017	      0083
+EXT_PARTITION  . . . . . . . . .	 001A
+  EPpte  . . . . . . . . . . . .	 0000	      0010
+  EPStartLBA . . . . . . . . . .	 0010	     DWord
+  EPEndLBA . . . . . . . . . . .	 0014	     DWord
+  EPbootable . . . . . . . . . .	 0018	     Byte
+  EPDrive  . . . . . . . . . . .	 0019	     Byte
+ExtBiosDiskAddrPkt . . . . . . .	 0018
+  EBDAPSz  . . . . . . . . . . .	 0000	     Byte
+  EBDAPres1  . . . . . . . . . .	 0001	     Byte
+  EBDAPBlocks  . . . . . . . . .	 0002	     Byte
+  EBDAPres2  . . . . . . . . . .	 0003	     Byte
+  EBDAPLowPtr  . . . . . . . . .	 0004	     Word
+  EBDAPHighPtr . . . . . . . . .	 0006	     Word
+  EBDAPLBAlow  . . . . . . . . .	 0008	     DWord
+  EBDAPLBAhigh . . . . . . . . .	 000C	     DWord
+  EBDAPFlatAdr1  . . . . . . . .	 0010	     DWord
+  EBDAPFlatAdr2  . . . . . . . .	 0014	     DWord
+ExtBiosDrvTab  . . . . . . . . .	 001E
+  EBDTBuffSz . . . . . . . . . .	 0000	     Word
+  EBDTInfo . . . . . . . . . . .	 0002	     Word
+  EBDTCylinders  . . . . . . . .	 0004	     DWord
+  EBDTHeads  . . . . . . . . . .	 0008	     DWord
+  EBDTSectors  . . . . . . . . .	 000C	     DWord
+  EBDTTotSect  . . . . . . . . .	 0010	     DWord
+  EBDTTotSect1 . . . . . . . . .	 0014	     DWord
+  EBDTSectTrk  . . . . . . . . .	 0018	     Word
+  EBDTEDD  . . . . . . . . . . .	 001A	     DWord
+GWIND  . . . . . . . . . . . . .	 0014
+  xorg . . . . . . . . . . . . .	 0000	     Word
+  yorg . . . . . . . . . . . . .	 0002	     Word
+  xend . . . . . . . . . . . . .	 0004	     Word
+  yend . . . . . . . . . . . . .	 0006	     Word
+  xsiz . . . . . . . . . . . . .	 0008	     Word
+  ysiz . . . . . . . . . . . . .	 000A	     Word
+  bcolor . . . . . . . . . . . .	 000C	     Word
+  ccolor . . . . . . . . . . . .	 000E	     Word
+  currx  . . . . . . . . . . . .	 0010	     Word
+  curry  . . . . . . . . . . . .	 0012	     Word
+MODEINFO . . . . . . . . . . . .	 0100
+  modeattributes . . . . . . . .	 0000	     Word
+  winaattributes . . . . . . . .	 0002	     Byte
+  winbattributes . . . . . . . .	 0003	     Byte
+  wingranularity . . . . . . . .	 0004	     Word
+  winsize  . . . . . . . . . . .	 0006	     Word
+  winasegment  . . . . . . . . .	 0008	     Word
+  winbsegment  . . . . . . . . .	 000A	     Word
+  winfuncptr . . . . . . . . . .	 000C	     DWord
+  bytesperscanline . . . . . . .	 0010	     Word
+  xresolution  . . . . . . . . .	 0012	     Word
+  yresolution  . . . . . . . . .	 0014	     Word
+  xcharsize  . . . . . . . . . .	 0016	     Byte
+  ycharsize  . . . . . . . . . .	 0017	     Byte
+  numberofplanes . . . . . . . .	 0018	     Byte
+  bitsperpixel . . . . . . . . .	 0019	     Byte
+  numberofbanks  . . . . . . . .	 001A	     Byte
+  memorymodel  . . . . . . . . .	 001B	     Byte
+  banksize . . . . . . . . . . .	 001C	     Byte
+  numberofimagepages . . . . . .	 001D	     Byte
+  reserved1  . . . . . . . . . .	 001E	     Byte
+  redmasksize  . . . . . . . . .	 001F	     Byte
+  redfieldposition . . . . . . .	 0020	     Byte
+  greenmasksize  . . . . . . . .	 0021	     Byte
+  greenfieldposition . . . . . .	 0022	     Byte
+  bluemasksize . . . . . . . . .	 0023	     Byte
+  bluefieldposition  . . . . . .	 0024	     Byte
+  rsvdmasksize . . . . . . . . .	 0025	     Byte
+  rsvdfieldposition  . . . . . .	 0026	     Byte
+  directcolormodeinfo  . . . . .	 0027	     Byte
+  physbaseptr  . . . . . . . . .	 0028	     DWord
+  offscreenmemoffset . . . . . .	 002C	     DWord
+  offscreenmemsize . . . . . . .	 0030	     Word
+  reserved2  . . . . . . . . . .	 0032	     Byte
+PARTITION_INFO . . . . . . . . .	 0083
+  PIpte  . . . . . . . . . . . .	 0000	      0010
+  PIStartLBA . . . . . . . . . .	 0010	     DWord
+  PIEndLBA . . . . . . . . . . .	 0014	     DWord
+  PIbootable . . . . . . . . . .	 0018	     Byte
+  PIDrive  . . . . . . . . . . .	 0019	     Byte
+  PIExtended . . . . . . . . . .	 001A	     Byte
+  PIEParts . . . . . . . . . . .	 001B	      001A
+PARTITION_TABLE_ENTRY  . . . . .	 0010
+  bte_bootable . . . . . . . . .	 0000	     Byte
+  bte_starthead  . . . . . . . .	 0001	     Byte
+  bte_startsector  . . . . . . .	 0002	     Word
+  bte_system . . . . . . . . . .	 0004	     Byte
+  bte_endhead  . . . . . . . . .	 0005	     Byte
+  bte_endsector  . . . . . . . .	 0006	     Word
+  bte_relativesector . . . . . .	 0008	     DWord
+  bte_totalsector  . . . . . . .	 000C	     DWord
+VBEINFO  . . . . . . . . . . . .	 0200
+  vbesignature . . . . . . . . .	 0000	     Byte
+  vbeversion . . . . . . . . . .	 0004	     Word
+  oemstringptr . . . . . . . . .	 0006	     DWord
+  capabilities . . . . . . . . .	 000A	     Byte
+  videomodeptr . . . . . . . . .	 000E	     DWord
+  totalmemory  . . . . . . . . .	 0012	     Word
+  oemsoftwarerev . . . . . . . .	 0014	     Word
+  oemvendornameptr . . . . . . .	 0016	     DWord
+  oemproductnameptr  . . . . . .	 001A	     DWord
+  oemproductrevptr . . . . . . .	 001E	     DWord
+  reserved . . . . . . . . . . .	 0022	     Byte
+  oemdata  . . . . . . . . . . .	 0100	     Byte
+VDCONTX  . . . . . . . . . . . .	 0338
+  Create . . . . . . . . . . . .	 0000	     Word
+  Destroy  . . . . . . . . . . .	 0002	     Word
+  Clear  . . . . . . . . . . . .	 0004	     Word
+  getNumPages  . . . . . . . . .	 0006	     Word
+  setActivePage  . . . . . . . .	 0008	     Word
+  setVisiblePage . . . . . . . .	 000A	     Word
+  pixel  . . . . . . . . . . . .	 000C	     Word
+  fillRect . . . . . . . . . . .	 000E	     Word
+  drawRect . . . . . . . . . . .	 0010	     Word
+  drawChar . . . . . . . . . . .	 0012	     Word
+  drawLine . . . . . . . . . . .	 0014	     Word
+  drawString . . . . . . . . . .	 0016	     Word
+  createWindow . . . . . . . . .	 0018	     Word
+  createbutton . . . . . . . . .	 001A	     Word
+  vbi  . . . . . . . . . . . . .	 001C	      0200
+  vmi  . . . . . . . . . . . . .	 021C	      0100
+  origMode . . . . . . . . . . .	 031C	     Word
+  currentMode  . . . . . . . . .	 031E	     Word
+  currentBank  . . . . . . . . .	 0320	     Word
+  banksPerPage . . . . . . . . .	 0322	     Word
+  activePage . . . . . . . . . .	 0324	     Word
+  activePageOffset . . . . . . .	 0326	     Word
+  visiblePage  . . . . . . . . .	 0328	     Word
+  error  . . . . . . . . . . . .	 032A	     Word
+  maxx . . . . . . . . . . . . .	 032C	     Word
+  maxy . . . . . . . . . . . . .	 032E	     Word
+  vwidth . . . . . . . . . . . .	 0330	     Word
+  vheight  . . . . . . . . . . .	 0332	     Word
+  fontSeg  . . . . . . . . . . .	 0334	     Word
+  fontOff  . . . . . . . . . . .	 0336	     Word
+VGACOLOR . . . . . . . . . . . .	 0006
+  red  . . . . . . . . . . . . .	 0000	     Word
+  green  . . . . . . . . . . . .	 0002	     Word
+  blue . . . . . . . . . . . . .	 0004	     Word
+VgaInfoBlock . . . . . . . . . .	 0200
+  VESASignature  . . . . . . . .	 0000	     Byte
+  VESAVersion  . . . . . . . . .	 0004	     Word
+  OEMStringPtr . . . . . . . . .	 0006	     DWord
+  Capabilities . . . . . . . . .	 000A	     Byte
+  VideoModePtr . . . . . . . . .	 000E	     DWord
+  TotalMemory  . . . . . . . . .	 0012	     Word
+  Reserved . . . . . . . . . . .	 0014	     Byte
+  OemData  . . . . . . . . . . .	 0100	     Byte
+
+
+Records:
+
+                N a m e                  Width     # fields
+                                         Shift     Width     Mask      Initial
+
+CYLSEC . . . . . . . . . . . . .	 0010	   0002
+  Cylinder . . . . . . . . . . .	 0006	   000A	     FFC0     ?
+  Sector . . . . . . . . . . . .	 0000	   0006	     003F     ?
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+_Text  . . . . . . . . . . . . .	16 Bit	 0786	  Para	  Public  
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+AIXBOOT  . . . . . . . . . . . .	Number	 0008h	 
+AIXDATA  . . . . . . . . . . . .	Number	 0009h	 
+BEXTEND  . . . . . . . . . . . .	Number	 000Fh	 
+BFAT16 . . . . . . . . . . . . .	Number	 000Eh	 
+BFAT32 . . . . . . . . . . . . .	Number	 000Ch	 
+BGFAT16  . . . . . . . . . . . .	Number	 0006h	 
+BOOTABLE . . . . . . . . . . . .	Number	 0001h	 
+Begin  . . . . . . . . . . . . .	L Near	 0034	  _Text	
+BootPartition  . . . . . . . . .	L Near	 0000	  External
+CreateCmd  . . . . . . . . . . .	L Near	 0398	  _Text	
+CreatePartition  . . . . . . . .	L Near	 0000	  External
+CreatePart . . . . . . . . . . .	L Near	 03B2	  _Text	
+DELL . . . . . . . . . . . . . .	Number	 00DEh	 
+DIEXTENDED . . . . . . . . . . .	Number	 0055h	 
+DYNVOL . . . . . . . . . . . . .	Number	 0042h	 
+DriveInfoCollect . . . . . . . .	L Near	 0000	  External
+DriveInfoDisplay . . . . . . . .	L Near	 0000	  External
+EFI  . . . . . . . . . . . . . .	Number	 00EFh	 
+EISA . . . . . . . . . . . . . .	Number	 0012h	 
+EXTEND . . . . . . . . . . . . .	Number	 0005h	 
+FAT12  . . . . . . . . . . . . .	Number	 0001h	 
+FAT16  . . . . . . . . . . . . .	Number	 0004h	 
+FAT32  . . . . . . . . . . . . .	Number	 000Bh	 
+GPT  . . . . . . . . . . . . . .	Number	 00EEh	 
+GetChar  . . . . . . . . . . . .	L Near	 0000	  External
+GetLine  . . . . . . . . . . . .	L Near	 0000	  External
+GetNextParam . . . . . . . . . .	L Near	 0000	  External
+HIB  . . . . . . . . . . . . . .	Number	 00A0h	 
+IBM  . . . . . . . . . . . . . .	Number	 00FEh	 
+LINUXRT  . . . . . . . . . . . .	Number	 0083h	 
+LINUXSW  . . . . . . . . . . . .	Number	 0082h	 
+LineBuff . . . . . . . . . . . .	Byte	 04F9	  _Text	
+MDFAT16  . . . . . . . . . . . .	Number	 0086h	 
+MDNTFS . . . . . . . . . . . . .	Number	 0087h	 
+NTFS . . . . . . . . . . . . . .	Number	 0007h	 
+OS2BOOT  . . . . . . . . . . . .	Number	 000Ah	 
+POWMAN . . . . . . . . . . . . .	Number	 0084h	 
+PTE_BOOTABLE . . . . . . . . . .	Number	 0080h	 
+PTE_EXTENDED . . . . . . . . . .	Number	 00AAh	 
+ShowSector . . . . . . . . . . .	L Near	 0000	  External
+XENIXR . . . . . . . . . . . . .	Number	 0002h	 
+XENIXU . . . . . . . . . . . . .	Number	 0003h	 
+ZapCmd . . . . . . . . . . . . .	L Near	 041D	  _Text	
+ZapDriveid . . . . . . . . . . .	Byte	 043F	  _Text	
+ZapDrive . . . . . . . . . . . .	L Near	 0000	  External
+ZapPartitionid . . . . . . . . .	Byte	 0440	  _Text	
+ZapPartition . . . . . . . . . .	L Near	 0000	  External
+activeWindow . . . . . . . . . .	L Near	 0000	  External
+ascii2hex  . . . . . . . . . . .	L Near	 0000	  External
+bemessg  . . . . . . . . . . . .	Byte	 001C	  _Text	
+bmessg . . . . . . . . . . . . .	Byte	 0006	  _Text	
+bok1 . . . . . . . . . . . . . .	L Near	 0274	  _Text	
+bootcmd  . . . . . . . . . . . .	L Near	 026D	  _Text	
+bootdriveid  . . . . . . . . . .	Byte	 026B	  _Text	
+bootdrive  . . . . . . . . . . .	Byte	 0005	  _Text	
+bootpart . . . . . . . . . . . .	Byte	 026C	  _Text	
+cerror . . . . . . . . . . . . .	L Near	 0263	  _Text	
+chardone1  . . . . . . . . . . .	L Near	 0077	  _Text	
+charloop1  . . . . . . . . . . .	L Near	 006E	  _Text	
+cmdloop  . . . . . . . . . . . .	L Near	 0209	  _Text	Public
+cont . . . . . . . . . . . . . .	L Near	 0200	  _Text	
+cpDrvId  . . . . . . . . . . . .	Byte	 0393	  _Text	
+cpSize . . . . . . . . . . . . .	DWord	 0394	  _Text	
+cpok1  . . . . . . . . . . . . .	L Near	 03BA	  _Text	
+dinf . . . . . . . . . . . . . .	L Near	 0000	  External
+displayBuffer  . . . . . . . . .	L Near	 0000	  External
+displayDI  . . . . . . . . . . .	L Near	 0000	  External
+driveid  . . . . . . . . . . . .	Byte	 02F2	  _Text	
+getout . . . . . . . . . . . . .	L Near	 0067	  _Text	
+gwDrives . . . . . . . . . . . .	L Near	 0000	  External
+init_command . . . . . . . . . .	L Near	 0000	  External
+init_sector  . . . . . . . . . .	L Near	 0000	  External
+init_vid . . . . . . . . . . . .	L Near	 0000	  External
+kill_vid . . . . . . . . . . . .	L Near	 0000	  External
+lastByte . . . . . . . . . . . .	L Near	 0000	  External
+nodzap . . . . . . . . . . . . .	L Near	 04A2	  _Text	
+ok . . . . . . . . . . . . . . .	L Near	 0064	  _Text	
+printChar  . . . . . . . . . . .	L Near	 0000	  External
+printHexByte . . . . . . . . . .	L Near	 0000	  External
+printHexDWord  . . . . . . . . .	L Near	 0000	  External
+printHexNibble . . . . . . . . .	L Near	 0000	  External
+printHexWord . . . . . . . . . .	L Near	 0000	  External
+print_size . . . . . . . . . . .	L Near	 0000	  External
+println1 . . . . . . . . . . . .	L Near	 0069	  _Text	
+println  . . . . . . . . . . . .	L Near	 0000	  External
+quitcmd  . . . . . . . . . . . .	L Near	 025D	  _Text	
+rsltbuffh  . . . . . . . . . . .	DWord	 054D	  _Text	
+rsltbuffl  . . . . . . . . . . .	DWord	 0549	  _Text	
+sBootCmd . . . . . . . . . . . .	Byte	 0564	  _Text	
+sCommands  . . . . . . . . . . .	Byte	 05D3	  _Text	
+sConfirm . . . . . . . . . . . .	Byte	 0551	  _Text	
+sCreateCmd . . . . . . . . . . .	Byte	 057C	  _Text	
+sDIok1 . . . . . . . . . . . . .	L Near	 02FB	  _Text	
+sDrv . . . . . . . . . . . . . .	Byte	 0596	  _Text	
+sLF  . . . . . . . . . . . . . .	Byte	 05A8	  _Text	
+sPartition . . . . . . . . . . .	Byte	 059D	  _Text	
+sSect  . . . . . . . . . . . . .	Byte	 058E	  _Text	
+sShowCmd . . . . . . . . . . . .	Byte	 056E	  _Text	
+sStartMsg  . . . . . . . . . . .	Byte	 05AB	  _Text	
+sWhat  . . . . . . . . . . . . .	Byte	 05CF	  _Text	
+sZapCmd  . . . . . . . . . . . .	Byte	 0577	  _Text	
+secth  . . . . . . . . . . . . .	DWord	 0334	  _Text	
+sectl  . . . . . . . . . . . . .	DWord	 0330	  _Text	
+shcmds . . . . . . . . . . . . .	L Near	 0261	  _Text	
+showDI . . . . . . . . . . . . .	L Near	 02F3	  _Text	
+showSect . . . . . . . . . . . .	L Near	 0338	  _Text	
+showZero . . . . . . . . . . . .	L Near	 0000	  External
+showcmd  . . . . . . . . . . . .	L Near	 02DE	  _Text	
+ssok1  . . . . . . . . . . . . .	L Near	 0343	  _Text	
+start  . . . . . . . . . . . . .	L Near	 0000	  _Text	Public
+vidcontext . . . . . . . . . . .	L Near	 0000	  External
+zapDrv . . . . . . . . . . . . .	L Near	 0441	  _Text	Public
+zapPart  . . . . . . . . . . . .	L Near	 04A5	  _Text	
+zdok1  . . . . . . . . . . . . .	L Near	 0449	  _Text	
+zok1 . . . . . . . . . . . . . .	L Near	 04AD	  _Text	
+zpdrv  . . . . . . . . . . . . .	L Near	 049B	  _Text	
+
+	   0 Warnings
+	   0 Errors

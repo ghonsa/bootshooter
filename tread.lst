@@ -1,0 +1,222 @@
+Microsoft (R) Macro Assembler Version 6.11		    06/24/05 08:45:53
+C:\work\bootloader\tread.asm				     Page 1 - 1
+
+
+
+ 0000				_Text SEGMENT PUBLIC USE16					  
+				  assume CS:_Text, DS:_Text
+				.286
+
+				org 100h
+				public start
+ 0100				start:
+
+ 0100  EB 6F			jmp	  Begin	
+
+				; miscellaneous code-segment messages
+				;
+				;
+				; --- small data strings ---
+				;
+ 0102 00			bootdrive       db      ?
+ 0103 72 65 61 64 69 6E		bmessg          db "reading booter code",0ah,0dh,0
+       67 20 62 6F 6F 74
+       65 72 20 63 6F 64
+       65 0A 0D 00
+ 0119 0D 0A 2A 26 26 26		bemessg         db 0dh,0ah,"*&&&ERROR* reading booter!",0
+       45 52 52 4F 52 2A
+       20 72 65 61 64 69
+       6E 67 20 62 6F 6F
+       74 65 72 21 00
+ 0136 4E 6F 74 20 65 6E		NoMemory        db      'Not enough memory',0dh,0ah,0
+       6F 75 67 68 20 6D
+       65 6D 6F 72 79 0D
+       0A 00
+ 014A 0D 0A 52 65 61 64		bokmsg			db	0dh,0ah,"Read OK",0
+       20 4F 4B 00
+ 0154 63 6F 6E 00		ConsoleName     db      'con',00h
+ 0158 00			sectors			db	0
+
+ 0159				dskpac:
+ 0159 00			EBDAPSz			db	0
+ 015A 00			EBDAPres1		db	0
+ 015B 00			EBDAPBlocks		db	0
+ 015C 00			EBDAPres2		db	0
+ 015D 0000			EBDAPLowPtr		dw	0
+ 015F 0000			EBDAPHighPtr 	dw	0
+ 0161 00000000			EBDAPLBAlow		dd	0
+ 0165 00000000			EBDAPLBAhigh	dd	0
+ 0169 00000000			EBDAPFlatAdr1	dd	0
+ 016D 00000000			EBDAPFlatAdr2	dd	0
+
+
+ 0171				Begin: 
+ 0171  0E			        push    cs                              ; set all segmens the same...
+ 0172  1F			        pop     ds                      ; 
+ 0173  0E			        push    cs
+ 0174  07			        pop             es
+
+				; assume floppy 0 now
+ 0175  B2 00			        mov		dl,0
+ 0177  88 16 0102 R		        mov     bootdrive,dl
+				;
+				;   read in the rest of the booter
+				;
+ 017B  BE 0103 R		        mov     si,offset bmessg
+ 017E  E8 0067			        call    println1
+ 0181  B8 0211					mov		ax,211h
+ 0184  BB 0300					mov		bx,300h
+ 0187  B9 0002					mov		cx,2
+ 018A  BA 0000					mov		dx,0
+ 018D  CD 13					int		13h
+
+				     
+ 018F  73 0B			        jnc     okg
+				        ; -- something went wrong -- 
+ 0191				errorm:
+ 0191  E8 0046					call	printHexWord
+ 0194  BE 0119 R		        mov     si,offset bemessg
+ 0197  E8 004E			        call    println1
+ 019A  EB 06			        jmp     getout
+
+ 019C  BE 014A R		okg:	mov		si,offset bokmsg
+ 019F  E8 0046			        call    println1
+
+				        
+ 01A2				getout:
+ 01A2  C3			        ret
+				;
+
+ 01A3				 readsect:
+ 01A3  BE 0159 R		 		mov     si,offset  dskpac                                
+ 01A6  B2 00			 		mov     dl,0
+ 01A8  B8 4200			 		mov     ax,4200h
+ 01AB  CD 13			 		int     13h
+ 01AD  C3					ret
+
+
+ 01AE				 printChar:
+ 01AE  50				push	ax
+ 01AF  B4 0E			 	mov		ah,0eh
+ 01B1  CD 10				int		10h
+ 01B3  58				pop		ax
+ 01B4  C3				ret
+
+ 01B5				printHexNibble:
+ 01B5  50				push	ax
+ 01B6  24 0F				and		al,0fh
+ 01B8  3C 09				cmp		al,9
+ 01BA  7F 07				jg		alphab
+ 01BC				showval:
+ 01BC  04 30				add		al,30h
+ 01BE  E8 FFED				call	printChar
+ 01C1  EB 05				jmp		phnout
+ 01C3				alphab:
+ 01C3  04 37				add		al,37h
+ 01C5  E8 FFE6				call	printChar
+ 01C8				phnout:
+ 01C8  58				pop	ax
+ 01C9  C3				ret
+ 01CA				printHexByte:
+ 01CA  53				push	bx
+ 01CB  8B D8				mov		bx,ax
+ 01CD  C0 E8 04				shr		al,4
+ 01D0  E8 FFE2				call	printHexNibble
+ 01D3  8A C3				mov		al,bl
+ 01D5  E8 FFDD				call	printHexNibble
+ 01D8  5B				pop		bx
+ 01D9  C3				ret
+					
+					
+ 01DA				printHexWord:
+ 01DA  53				push	bx
+ 01DB  50				push	ax
+ 01DC  C1 E8 08				shr		ax,8
+ 01DF  E8 FFE8				call	printHexByte
+ 01E2  58				pop		ax
+ 01E3  E8 FFE4				call	printHexByte
+ 01E6  5B				pop		bx
+ 01E7  C3				ret
+
+				;**********************************************************
+				;  println ds:si -> null terminated string
+				;
+				;**********************************************************
+ 01E8				println1:
+ 01E8  50			        push    ax
+ 01E9  1E			        push    ds
+ 01EA  56			        push    si
+ 01EB  B4 0E			        mov     ah,0eh
+ 01ED				charloop1:
+ 01ED  AC			        lodsb
+ 01EE  0A C0			        or      al,al
+ 01F0  74 04			        jz      chardone1
+ 01F2  CD 10			        int     10h
+ 01F4  EB F7			        jmp     charloop1
+ 01F6				chardone1:
+ 01F6  5E			        pop     si
+ 01F7  1F			        pop     ds
+ 01F8  58			        pop     ax
+ 01F9  C3			        ret
+
+				org 510    ; Make the file 512 bytes long
+ 01FE  AA55			  dw 0AA55h  ; Add the boot signature
+
+
+
+ 0200				 _Text ENDS
+				  END  start
+Microsoft (R) Macro Assembler Version 6.11		    06/24/05 08:45:53
+C:\work\bootloader\tread.asm				     Symbols 2 - 1
+
+
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+_Text  . . . . . . . . . . . . .	16 Bit	 0200	  Para	  Public  
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+Begin  . . . . . . . . . . . . .	L Near	 0171	  _Text	
+ConsoleName  . . . . . . . . . .	Byte	 0154	  _Text	
+EBDAPBlocks  . . . . . . . . . .	Byte	 015B	  _Text	
+EBDAPFlatAdr1  . . . . . . . . .	DWord	 0169	  _Text	
+EBDAPFlatAdr2  . . . . . . . . .	DWord	 016D	  _Text	
+EBDAPHighPtr . . . . . . . . . .	Word	 015F	  _Text	
+EBDAPLBAhigh . . . . . . . . . .	DWord	 0165	  _Text	
+EBDAPLBAlow  . . . . . . . . . .	DWord	 0161	  _Text	
+EBDAPLowPtr  . . . . . . . . . .	Word	 015D	  _Text	
+EBDAPSz  . . . . . . . . . . . .	Byte	 0159	  _Text	
+EBDAPres1  . . . . . . . . . . .	Byte	 015A	  _Text	
+EBDAPres2  . . . . . . . . . . .	Byte	 015C	  _Text	
+NoMemory . . . . . . . . . . . .	Byte	 0136	  _Text	
+alphab . . . . . . . . . . . . .	L Near	 01C3	  _Text	
+bemessg  . . . . . . . . . . . .	Byte	 0119	  _Text	
+bmessg . . . . . . . . . . . . .	Byte	 0103	  _Text	
+bokmsg . . . . . . . . . . . . .	Byte	 014A	  _Text	
+bootdrive  . . . . . . . . . . .	Byte	 0102	  _Text	
+chardone1  . . . . . . . . . . .	L Near	 01F6	  _Text	
+charloop1  . . . . . . . . . . .	L Near	 01ED	  _Text	
+dskpac . . . . . . . . . . . . .	L Near	 0159	  _Text	
+errorm . . . . . . . . . . . . .	L Near	 0191	  _Text	
+getout . . . . . . . . . . . . .	L Near	 01A2	  _Text	
+okg  . . . . . . . . . . . . . .	L Near	 019C	  _Text	
+phnout . . . . . . . . . . . . .	L Near	 01C8	  _Text	
+printChar  . . . . . . . . . . .	L Near	 01AE	  _Text	
+printHexByte . . . . . . . . . .	L Near	 01CA	  _Text	
+printHexNibble . . . . . . . . .	L Near	 01B5	  _Text	
+printHexWord . . . . . . . . . .	L Near	 01DA	  _Text	
+println1 . . . . . . . . . . . .	L Near	 01E8	  _Text	
+readsect . . . . . . . . . . . .	L Near	 01A3	  _Text	
+sectors  . . . . . . . . . . . .	Byte	 0158	  _Text	
+showval  . . . . . . . . . . . .	L Near	 01BC	  _Text	
+start  . . . . . . . . . . . . .	L Near	 0100	  _Text	Public
+
+	   0 Warnings
+	   0 Errors
